@@ -1,3 +1,5 @@
+name: phase0
+
 services:
   test:
     profiles: ["test"]

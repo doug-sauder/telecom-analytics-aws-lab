@@ -1,7 +1,23 @@
-#name: analytics
+name: phase0
 
 services:
-  # pmgen:
+  pmgen:
+    build:
+      context: ../../../services/pmgen
+      dockerfile: Dockerfile
+    depends_on:
+      ingest:
+        condition: service_healthy
+    environment:
+      - PMGEN_TARGET_URL=http://ingest:3000/v1/events
+      - PMGEN_INTERVAL_SECONDS=5
+      - PMGEN_CELL_COUNT=50
+      - PMGEN_SOURCE=pmgen
+      - PMGEN_SCHEMA_VERSION=1
+      - PMGEN_SCENARIO=steady
+      - PMGEN_REQUEST_TIMEOUT_SECONDS=5
+    networks:
+      - analytics-net
   ingest:
     build:
       context: ../../../services/ingest

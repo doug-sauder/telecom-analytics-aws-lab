@@ -1,5 +1,4 @@
 # My files
-
 dws-*
 
 # Finder
@@ -13,8 +12,12 @@ __pycache__/
 # C extensions
 *.so
 
+# Node.js
+node_modules/
+
 # Distribution / packaging
 .Python
+.venv/
 build/
 develop-eggs/
 dist/

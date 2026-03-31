@@ -40,7 +40,7 @@ No Kafka, no lakehouse, no OLAP store. One database and one visualization tool.
 ### B. Ingestion API (container)
 
 * Purpose: accept events, validate, deduplicate, persist.
-* Interface: `POST /v1/events/pm`
+* Interface: `POST /v1/events`
 * Persistence:
 
   * insert raw events into Postgres table `pm_events`
@@ -122,11 +122,11 @@ Later, the same boundaries map cleanly to Kubernetes Deployments/Services.
 
 ---
 
-# Assignment 0 (your first implementation sprint)
+# Sprint 0
 
 ## Deliverable definition (what “done” means)
 
-By the end of this assignment, a reviewer should be able to run one command and see data flowing into a dashboard.
+By the end of this sprint, a reviewer should be able to run one command and see data flowing into a dashboard.
 
 ### Acceptance criteria
 

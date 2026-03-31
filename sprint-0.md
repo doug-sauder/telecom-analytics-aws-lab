@@ -1,5 +1,9 @@
 
-1. Create the Postgres schema
+# Cloud-Native Telecom Analytics -- Phase 0
+
+## Milestones
+
+**1\. Create the Postgres schema**
 
    * Add infra/db/schema.sql (or a migration tool if you prefer).
 
@@ -9,7 +13,7 @@
 
    * Add the two indexes: (event_time) and (entity_id, event_time).
 
-2. Implement ingestion service (minimal)
+**2\. Implement ingestion service (minimal)**
 
 Language choice: pick what you will actually use in interviews (Node.js/TypeScript or Python/FastAPI are both fine).
 
@@ -24,7 +28,7 @@ Required behavior:
    * If event_id already exists, return 200 (or 409, but 200 makes
      idempotent retry easier) without inserting a duplicate.
 
-3. Implement generator
+**3\. Implement generator**
 
    * Emit an event every 5 seconds (configurable).
 
@@ -34,7 +38,7 @@ Required behavior:
 
    * POST to ingestion service.
 
-4. Add a KPI view for Grafana
+**4\. Add a KPI view for Grafana**
 
 Create infra/db/views.sql with a view like:
 
@@ -44,7 +48,7 @@ Create infra/db/views.sql with a view like:
 
 You can start with one KPI and one chart.
 
-5. Grafana
+**5\. Grafana**
 
    * Run Grafana in Compose.
 
@@ -54,7 +58,7 @@ You can start with one KPI and one chart.
 
    * Export the dashboard JSON into dashboards/phase0-kpis.json.
 
-6. Documentation
+**6\. Documentation**
 
 In docs/phase0-runbook.md:
 
