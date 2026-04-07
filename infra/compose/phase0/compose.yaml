@@ -41,7 +41,21 @@ services:
       timeout: 3s
       retries: 20
       start_period: 5s
-  # grafana:
+  grafana:
+    image: grafana/grafana:11.6.0
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    networks:
+      - analytics-net
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../../../dashboards:/var/lib/grafana/dashboards:ro
   postgres:
     image: postgres:18
     environment:

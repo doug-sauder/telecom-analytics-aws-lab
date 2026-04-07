@@ -19,7 +19,7 @@ Language choice: pick what you will actually use in interviews (Node.js/TypeScri
 
 Required behavior:
 
-   * POST /v1/events/pm
+   * POST /v1/events
 
    * Validate required fields exist (event_id, event_time, entity_id, metrics)
 
@@ -34,7 +34,7 @@ Required behavior:
 
    * Randomize:
      - entity_id across a small set (e.g., 50 cells)
-    - utilization metrics with reasonable ranges and some correlation (optional)
+     - utilization metrics with reasonable ranges and some correlation (optional)
 
    * POST to ingestion service.
 
