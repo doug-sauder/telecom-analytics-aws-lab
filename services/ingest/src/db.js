@@ -12,7 +12,11 @@ const pool = new Pool({
   connectionTimeoutMillis: 5000,
 });
 
-// Test database connectivity
+/**
+ * Verify the Postgres connection pool can acquire a client and execute a query.
+ * @returns {Promise<void>} Resolves when the connectivity check succeeds.
+ * @throws {Error} When Postgres is unavailable or authentication fails.
+ */
 async function initialize() {
   const client = await pool.connect();
   try {
@@ -22,13 +26,28 @@ async function initialize() {
   }
 }
 
+/**
+ * Run a lightweight readiness query against Postgres.
+ * @returns {Promise<void>} Resolves when the database responds successfully.
+ * @throws {Error} When the database is not ready.
+ */
 async function ping() {
   await pool.query('SELECT 1');
 }
 
-// Insert PM event into analytics.pm_events table
-// Auto-generates event_id as UUID if not provided
-// Returns { event_id, inserted } where inserted=false means duplicate
+/**
+ * Insert a single PM event into `analytics.pm_events`.
+ * @param {object} event Event fields matching the database schema.
+ * @param {string} [event.event_id] Optional event id; a UUID is generated when omitted.
+ * @param {number} [event.schema_version=1] Schema version recorded with the event.
+ * @param {string} [event.source='ingest'] Logical source name for the event.
+ * @param {string} event.event_time ISO timestamp for the event.
+ * @param {string} [event.entity_type='cell'] Telecom entity type for the event.
+ * @param {string} event.entity_id Entity identifier for the event.
+ * @param {object} event.metrics Metrics payload stored as JSONB.
+ * @returns {Promise<object>} `{ event_id, inserted }`, where `inserted` is `false` for duplicates.
+ * @throws {Error} When the database insert fails.
+ */
 async function insertEvent({
   event_id,
   schema_version = 1,
@@ -57,11 +76,59 @@ async function insertEvent({
   };
 }
 
+/**
+ * Insert multiple PM events in one SQL statement using idempotent conflict handling.
+ * @param {object[]} events Normalized events ready for persistence.
+ * @returns {Promise<object>} `{ insertedCount, attemptedCount }` summarizing the batch write.
+ * @throws {Error} When Postgres rejects the batch insert.
+ */
+async function insertEventsBatch(events) {
+  if (events.length === 0) {
+    return {
+      insertedCount: 0,
+      attemptedCount: 0,
+    };
+  }
+
+  const values = [];
+  // Build a single parameterized INSERT so Kafka batches map to one DB round-trip.
+  const placeholders = events.map((event, index) => {
+    const base = index * 7;
+    values.push(
+      event.event_id || randomUUID(),
+      event.schema_version ?? 1,
+      event.source ?? 'ingest',
+      event.event_time,
+      event.entity_type ?? 'cell',
+      event.entity_id,
+      event.metrics,
+    );
+
+    return `($${base + 1},$${base + 2},$${base + 3},$${base + 4},$${base + 5},$${base + 6},$${base + 7})`;
+  });
+
+  const q = `
+    INSERT INTO analytics.pm_events
+      (event_id, schema_version, source, event_time, entity_type, entity_id, metrics)
+      VALUES ${placeholders.join(',')}
+      ON CONFLICT (event_id) DO NOTHING
+      RETURNING event_id
+  `;
+
+  const result = await pool.query(q, values);
+
+  return {
+    insertedCount: result.rowCount,
+    attemptedCount: events.length,
+  };
+}
+
 export {
   pool,
   initialize,
   ping,
   insertEvent,
+  insertEventsBatch,
 };
 
 export default {
@@ -69,4 +136,5 @@ export default {
   initialize,
   ping,
   insertEvent,
+  insertEventsBatch,
 };

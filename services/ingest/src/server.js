@@ -25,10 +25,32 @@ app.use('/v1/events', eventsRouter);
 
 const port = process.env.PORT || 3000;
 
-// Initialize database connection and start HTTP server
+/**
+ * Initialize the database, start the HTTP health server, and launch the Kafka consumer loop.
+ * @returns {Promise<void>} Resolves after startup completes; the process remains alive until shutdown.
+ * @throws {Error} When startup fails before the service is fully initialized.
+ */
 async function start() {
   await initialize();
-  app.listen(port, () => console.log(`Ingest service listening on ${port}`));
+  const server = app.listen(port, () => console.log(`Ingest service listening on ${port}`));
+  const { startConsumer } = await import('./consumer.js');
+  // Keep health endpoints available while the consumer loop runs in the same process.
+  const consumer = await startConsumer();
+
+  const shutdown = async (signal) => {
+    console.log(`Received ${signal}, shutting down ingest service`);
+    await consumer.disconnect();
+    server.close(() => process.exit(0));
+  };
+
+  process.once('SIGINT', () => shutdown('SIGINT').catch((err) => {
+    console.error('Failed to shut down cleanly', err);
+    process.exit(1);
+  }));
+  process.once('SIGTERM', () => shutdown('SIGTERM').catch((err) => {
+    console.error('Failed to shut down cleanly', err);
+    process.exit(1);
+  }));
 }
 
 // Only start server if this module is run directly (not imported for testing)

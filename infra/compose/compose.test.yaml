@@ -1,4 +1,4 @@
-name: phase0
+name: analytics
 
 services:
   test:
@@ -6,7 +6,7 @@ services:
     image: node:20-alpine
     working_dir: /workspace
     volumes:
-      - ../../../services/ingest:/workspace:ro
+      - ../../services/ingest:/workspace
       - ingest-node_modules:/workspace/node_modules
       - ingest-npm-cache:/root/.npm
     environment:

@@ -91,8 +91,8 @@ The system will adhere to the following principles:
 
 ## 5. Technology Constraints
 
-- Primary languages: **Python** (backend), **JavaScript** (UI and tooling)
-- Container runtime: **Docker**
+- Primary languages: **Python** (backend), **Node.js** (backend), **JavaScript** (UI and tooling)
+- Container runtime: **Docker** (generally, OCI)
 - Orchestration: **Kubernetes**
 - Cloud provider: **AWS**
 - CI/CD: GitHub Actions (or equivalent)

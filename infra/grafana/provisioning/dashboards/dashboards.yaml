@@ -1,9 +1,9 @@
 apiVersion: 1
 
 providers:
-  - name: Phase 0 Dashboards
+  - name: Telecom Analytics Dashboards
     orgId: 1
-    folder: Phase 0
+    folder: PM Events
     type: file
     disableDeletion: true
     editable: false

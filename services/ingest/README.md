@@ -11,18 +11,38 @@ This service accepts POST /v1/events and stores raw PM (performance measurement)
 ## Docker / Compose:
 
 - The service is intended to run in the project's Compose file alongside `postgres`.
-- Build and run with `docker compose -f infra/compose/phase0/compose.yaml up --build` (from project root).
+- Build and run with `docker compose -f infra/compose/compose.yaml up --build` (from project root).
 
 ## Integration Tests
 
 Run the full stack and API-level integration tests:
 
 ```bash
-docker compose --profile test \
-  -f compose.yaml \
-  -f compose.test.yaml \
-  up --build --abort-on-container-exit --exit-code-from test
+cd <project-root>
+
+docker compose \
+  -f infra/compose/compose.yaml \
+  -f infra/compose/compose.test.yaml \
+  --profile test \
+  up -d --build
+
+docker wait analytics-test-1
+
+docker compose \
+  -f infra/compose/compose.yaml \
+  -f infra/compose/compose.test.yaml \
+  --profile test \
+  logs test
+
+docker compose \
+  -f infra/compose/compose.yaml \
+  -f infra/compose/compose.test.yaml \
+  --profile test \
+  down -v
 ```
+
+`docker wait analytics-test-1` returns `0` when the integration test passes and a non-zero code when it fails.
+The current integration suite validates the legacy `POST /v1/events` path; it does not yet cover the Kafka consumer end-to-end flow.
 
 ## Notes
 
@@ -33,4 +53,3 @@ docker compose --profile test \
 POST /v1/events
 - Body: JSON object with required fields `event_time` (ISO timestamp), `entity_id` (string), and `metrics` (object). Optionally `event_id`, `source`, `entity_type`, `schema_version`.
 - Returns: 201 {"event_id": "..."} on success.
-

@@ -105,7 +105,6 @@ Docker Compose (primary) with four services:
 * `pmgen` → posts to `ingest`
 * `ingest` → writes to `postgres`
 * `grafana` → reads from `postgres`
-* `postgres`
 
 Later, the same boundaries map cleanly to Kubernetes Deployments/Services.
 
@@ -115,7 +114,7 @@ Later, the same boundaries map cleanly to Kubernetes Deployments/Services.
 
 * `services/pmgen/` (generator)
 * `services/ingest/` (API)
-* `infra/compose/` (`docker-compose.yml`)
+* `infra/compose/` (`compose.yml`)
 * `infra/db/` (SQL migrations / schema)
 * `docs/` (architecture + runbook)
 * `dashboards/` (Grafana JSON exports)
