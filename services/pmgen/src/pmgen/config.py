@@ -13,3 +13,5 @@ class RuntimeConfig(BaseSettings):
     schema_version: int = Field(default=1, ge=1)
     scenario: str = "steady"
     request_timeout_seconds: float = Field(default=5.0, gt=0)
+    kafka_broker: str = "localhost:9092"
+    kafka_topic: str = "pm.events"

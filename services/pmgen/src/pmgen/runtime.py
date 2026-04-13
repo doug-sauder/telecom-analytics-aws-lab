@@ -10,18 +10,18 @@ LOGGER = logging.getLogger(__name__)
 
 
 class PmgenRuntime:
-    def __init__(self, config: RuntimeConfig) -> None:
+    def __init__(self, config: RuntimeConfig, event_sender: EventSender) -> None:
         self.config = config
         self.stats = RuntimeStats()
         self.generator = EventGenerator(config)
-        self.sender = EventSender(config)
+        self.sender = event_sender
         self._running = False
 
     async def run_forever(self) -> None:
         self._running = True
         LOGGER.info(
             "starting pmgen target=%s interval_seconds=%s scenario=%s cell_count=%s",
-            self.config.target_url,
+            self.sender.target(),
             self.config.interval_seconds,
             self.config.scenario,
             self.config.cell_count,

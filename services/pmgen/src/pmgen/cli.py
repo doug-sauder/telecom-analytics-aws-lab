@@ -3,6 +3,7 @@ import json
 import logging
 import signal
 
+from pmgen.transport import HttpEventSender, KafkaEventSender
 import typer
 
 from pmgen.config import RuntimeConfig
@@ -20,13 +21,22 @@ def _setup_logging() -> None:
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
 
+@app.command("produce")
+def produce() -> None:
+    """Generate Kafka events and produce them to the configured topic."""
+    _setup_logging()
+    config = RuntimeConfig()
+    print(f"Producing events to Kafka broker {config.kafka_broker} on topic {config.kafka_topic}")
+    runtime = PmgenRuntime(config, KafkaEventSender(config))
+    asyncio.run(_run_with_signals(runtime))
+
 
 @app.command("run")
 def run() -> None:
-    """Continuously generate and send PM events."""
+    """Continuously generate and send PM events via HTTP."""
     _setup_logging()
     config = RuntimeConfig()
-    runtime = PmgenRuntime(config)
+    runtime = PmgenRuntime(config, HttpEventSender(config))
     asyncio.run(_run_with_signals(runtime))
 
 

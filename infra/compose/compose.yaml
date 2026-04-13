@@ -9,6 +9,8 @@ services:
       ingest:
         condition: service_healthy
     environment:
+      - PMGEN_KAFKA_BROKER=redpanda:9092
+      - PMGEN_KAFKA_TOPIC=pm.events
       - PMGEN_TARGET_URL=http://ingest:3000/v1/events
       - PMGEN_INTERVAL_SECONDS=5
       - PMGEN_CELL_COUNT=50

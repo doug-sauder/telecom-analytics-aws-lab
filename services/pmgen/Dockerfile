@@ -10,5 +10,6 @@ COPY src ./src
 
 RUN pip install --no-cache-dir .
 
-CMD ["pmgen", "run"]
+CMD ["pmgen", "produce"]
+#CMD ["pmgen", "run"]
 

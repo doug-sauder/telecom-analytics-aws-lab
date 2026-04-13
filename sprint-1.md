@@ -171,11 +171,13 @@ No schema changes required.
 * Add Redpanda container to compose
 * Verify topic creation and connectivity
 
+
 ### Step 2 — Implement Consumer (ingest)
 
 * Add Kafka client library (Node.js)
 * Implement polling loop
 * Add batch insert logic
+
 
 ### Step 3 — Implement Producer (pmgen)
 
@@ -183,15 +185,37 @@ No schema changes required.
 * Publish events to topic
 * Validate event flow via logs
 
+
 ### Step 4 — Add Metrics
 
 * Integrate Prometheus client libraries
 * Expose `/metrics` endpoints
 
+#### 4.1 Redpanda
+
+  * Scrape metrics from Admin API port (default: 9644) at endpoint /public_metrics
+  * Decide which metrics to monitor
+
+#### 4.2 Postgres
+
+ * Add postgres-exporter container to Docker Compose
+ * Decide which metrics to monitor
+
+#### 4.3 Pmgen
+
+  * Decide the metrics to expose
+  * Integrate client library and expose metrics
+
+#### 4.4 Ingest
+
+  * Decide the metrics to expose
+  * Integrate client library and expose metrics
+
 ### Step 5 — Add Prometheus
 
 * Configure scrape targets
 * Validate metric collection
+
 
 ### Step 6 — Update Grafana
 
@@ -200,6 +224,7 @@ No schema changes required.
   * ingestion throughput
   * processing latency
   * queue lag
+
 
 ### Step 7 — Failure Testing
 
@@ -236,7 +261,6 @@ No schema changes required.
 | Resource usage (local dev)    | Tune Redpanda (low memory mode)                                |
 | Silent failures               | Add logging + metrics early                                    |
 
----
 
 ## 10. Deliverables
 
@@ -247,7 +271,6 @@ No schema changes required.
 * Grafana dashboard updates
 * Updated README with architecture and run instructions
 
----
 
 ## 11. Exit Criteria
 
@@ -263,7 +286,6 @@ Phase 1 is complete when:
   * telecom metrics
   * system metrics
 
----
 
 ## 12. Stretch Goals (Optional)
 
