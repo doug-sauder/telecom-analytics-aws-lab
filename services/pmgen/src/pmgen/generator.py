@@ -3,6 +3,7 @@ import random
 from pmgen.config import RuntimeConfig
 from pmgen.models import EventMetrics, PMEvent
 from pmgen.scenarios import ScenarioState, generate_metrics
+from pmgen.metrics import EVENTS_GENERATED
 
 
 class EventGenerator:
@@ -19,9 +20,11 @@ class EventGenerator:
             cell_index=cell_index,
             state=self.state,
         )
-        return PMEvent(
+        pm_event = PMEvent(
             schema_version=self.config.schema_version,
             source=self.config.source,
             entity_id=entity_id,
             metrics=EventMetrics.model_validate(metrics),
         )
+        EVENTS_GENERATED.inc()
+        return pm_event

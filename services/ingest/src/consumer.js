@@ -1,9 +1,11 @@
 import { Kafka, logLevel } from 'kafkajs';
 import { insertEventsBatch } from './db.js';
 import { normalizeEvent } from './event-schema.js';
+import { metrics } from './metrics.js';
 
 /**
  * Split an array into evenly sized chunks for batched database writes.
+ * 
  * @param {Array} items Items to split.
  * @param {number} size Maximum number of items per chunk.
  * @returns {Array[]} Array of chunks preserving input order.
@@ -20,6 +22,7 @@ function chunk(items, size) {
 
 /**
  * Parse, validate, and batch-insert Kafka messages.
+ * 
  * @param {Array} messages Kafka messages represented as `{ topic, partition, offset, value }`.
  * @param {object} options Processing configuration.
  * @param {number} options.batchSize Maximum number of events per DB insert.
@@ -40,21 +43,31 @@ async function processMessages(messages, { batchSize, insertBatch, logger = cons
     } catch (err) {
       // Bad payloads are logged and skipped so one poison message does not stall the partition.
       invalidCount += 1;
+      const reason = err instanceof SyntaxError ? 'json_parse' : 'validation';
+      metrics.eventsRejected.inc({ path: 'kafka', reason });
       logger.warn('Skipping invalid Kafka message', {
         topic: message.topic,
         partition: message.partition,
         offset: message.offset,
+        reason,
         error: err.message,
       });
     }
   }
 
+  let attemptedCount = 0;
   let insertedCount = 0;
 
   for (const batch of chunk(validMessages, batchSize)) {
     const result = await insertBatch(batch.map((message) => message.event));
+    attemptedCount += result.attemptedCount;
     insertedCount += result.insertedCount;
   }
+
+  metrics.eventsInserted.inc({ path: 'kafka' }, insertedCount);
+  metrics.eventsRejected.inc({ path: 'kafka', reason: 'duplicate' }, attemptedCount - insertedCount);
+  metrics.kafkaMessagesProcessed.inc({ result: 'valid' }, validMessages.length);
+  metrics.kafkaMessagesProcessed.inc({ result: 'invalid' }, invalidCount);
 
   return {
     processedOffsets: validMessages.map((message) => message.offset),
@@ -64,7 +77,69 @@ async function processMessages(messages, { batchSize, insertBatch, logger = cons
 }
 
 /**
+ * Process one Kafka batch and commit offsets only after successful persistence.
+ *
+ * @param {object} batchContext KafkaJS batch callback context.
+ * @param {object} dependencies Services and configuration needed to process the batch.
+ * @param {number} dependencies.batchSize Maximum number of normalized events per DB insert.
+ * @param {Function} dependencies.insertBatch Async function that persists a batch of normalized events.
+ * @param {object} [dependencies.logger=console] Logger for batch processing output.
+ * @returns {Promise<void>} Resolves after the batch has been processed and offsets have been committed.
+ */
+async function handleConsumerBatch(
+  { batch, resolveOffset, heartbeat, commitOffsetsIfNecessary, isRunning, isStale },
+  { batchSize, insertBatch, logger = console },
+) {
+  if (!isRunning() || isStale()) {
+    return;
+  }
+
+  const endTimer = metrics.kafkaBatchDurationSeconds.startTimer();
+
+  try {
+    // Keep the Kafka metadata we need for logging/commits while normalizing payloads for the DB.
+    const messages = batch.messages.map((message) => ({
+      topic: batch.topic,
+      partition: batch.partition,
+      offset: message.offset,
+      value: message.value,
+    }));
+
+    const { processedOffsets, insertedCount, invalidCount } = await processMessages(messages, {
+      batchSize,
+      insertBatch,
+      logger,
+    });
+
+    // Offsets are committed only after the batch insert succeeds.
+    for (const offset of processedOffsets) {
+      resolveOffset(offset);
+    }
+
+    for (const message of messages) {
+      if (!processedOffsets.includes(message.offset)) {
+        resolveOffset(message.offset);
+      }
+    }
+
+    await heartbeat();
+    await commitOffsetsIfNecessary();
+
+    logger.info('Processed Kafka batch', {
+      topic: batch.topic,
+      partition: batch.partition,
+      messageCount: batch.messages.length,
+      insertedCount,
+      invalidCount,
+    });
+  } finally {
+    endTimer();
+  }
+}
+
+/**
  * Start the long-running Kafka consumer for the ingest service.
+ * 
  * @param {object} options Consumer configuration, defaulting to environment variables.
  * @param {string} [options.brokerUrl] Comma-separated Kafka broker list.
  * @param {string} [options.topic] Topic to subscribe to.
@@ -100,47 +175,11 @@ async function startConsumer({
   await consumer.run({
     autoCommit: false,
     eachBatchAutoResolve: false,
-    eachBatch: async ({ batch, resolveOffset, heartbeat, commitOffsetsIfNecessary, isRunning, isStale }) => {
-      if (!isRunning() || isStale()) {
-        return;
-      }
-
-      // Keep the Kafka metadata we need for logging/commits while normalizing payloads for the DB.
-      const messages = batch.messages.map((message) => ({
-        topic: batch.topic,
-        partition: batch.partition,
-        offset: message.offset,
-        value: message.value,
-      }));
-
-      const { processedOffsets, insertedCount, invalidCount } = await processMessages(messages, {
-        batchSize,
-        insertBatch: insertEventsBatch,
-        logger,
-      });
-
-      // Offsets are committed only after the batch insert succeeds.
-      for (const offset of processedOffsets) {
-        resolveOffset(offset);
-      }
-
-      for (const message of messages) {
-        if (!processedOffsets.includes(message.offset)) {
-          resolveOffset(message.offset);
-        }
-      }
-
-      await heartbeat();
-      await commitOffsetsIfNecessary();
-
-      logger.info('Processed Kafka batch', {
-        topic: batch.topic,
-        partition: batch.partition,
-        messageCount: batch.messages.length,
-        insertedCount,
-        invalidCount,
-      });
-    },
+    eachBatch: (batchContext) => handleConsumerBatch(batchContext, {
+      batchSize,
+      insertBatch: insertEventsBatch,
+      logger,
+    }),
   });
 
   logger.info(`Kafka consumer subscribed to ${topic} via ${brokerUrl}`);
@@ -148,9 +187,10 @@ async function startConsumer({
   return consumer;
 }
 
-export { processMessages, startConsumer };
+export { processMessages, handleConsumerBatch, startConsumer };
 
 export default {
   processMessages,
+  handleConsumerBatch,
   startConsumer,
 };

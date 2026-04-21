@@ -20,6 +20,8 @@ services:
       - PMGEN_REQUEST_TIMEOUT_SECONDS=5
     networks:
       - analytics-net
+    ports:
+      - "8000:8000"
 
   ingest:
     build:
@@ -85,13 +87,35 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql
       - ../db/01-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ../db/02-monitoring-user.sql:/docker-entrypoint-initdb.d/02-monitoring-user.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U telecom"]
       start_period: 10s
       interval: 5s
       timeout: 5s
       retries: 5
-  
+
+  postgres-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:latest
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATA_SOURCE_URI: "postgres:5432/telecom?sslmode=disable"
+      DATA_SOURCE_USER: "postgres_exporter"
+      DATA_SOURCE_PASS: "insecure=dev.only"
+      PG_EXPORTER_COLLECTION_TIMEOUT: 10s
+    networks:
+      - analytics-net
+    ports:
+      - "9187:9187"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9187/metrics >/dev/null 2>&1 || exit 1"]
+      start_period: 10s
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   redpanda:
     image: docker.redpanda.com/redpandadata/redpanda:v26.1.2
     command:
@@ -110,6 +134,7 @@ services:
       - analytics-net
     ports:
       - "19092:19092"
+      - "9644:9644"
 
   redpanda-init:
     image: redpandadata/redpanda:latest

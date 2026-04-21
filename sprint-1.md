@@ -2,7 +2,7 @@
 
 ## 1. Overview
 
-Phase 1 evolves the Phase 0 architecture by introducing **event-driven ingestion** and **basic observability**. The system transitions from a tightly coupled HTTP → DB model to a **decoupled, queue-based pipeline**.
+Phase 1 introduces **event-driven ingestion** and **basic observability**. The system transitions from a tightly coupled HTTP → DB model to a **decoupled, queue-based pipeline**.
 
 **Primary theme:** controlled data flow + operational visibility
 
@@ -25,7 +25,6 @@ Phase 1 evolves the Phase 0 architecture by introducing **event-driven ingestion
 ## 3. Architecture (Phase 1 Target)
 
 ```
-
 pmgen (producer)
 ↓
 message queue
@@ -35,7 +34,6 @@ ingest (consumer)
 Postgres
 ↓
 Grafana
-
 ```
 
 
@@ -88,8 +86,8 @@ topic: pm.events
 
 **Configuration:**
 
-* `BROKER_URL`
-* `TOPIC_NAME`
+* `KAFKA_BROKER`
+* `KAFKA_TOPIC`
 
 **Metrics (Prometheus):**
 
@@ -139,10 +137,12 @@ No schema changes required.
 
 #### Prometheus
 
-* Scrapes `/metrics` endpoints from:
+* Scrapes metrics endpoints from:
 
-  * ingest
-  * pmgen
+  * ingest (/metrics)
+  * pmgen (/metrics)
+  * redpanda (/public_metrics)
+  * postgres-exporter
 
 #### Grafana (extensions)
 
@@ -186,14 +186,14 @@ No schema changes required.
 * Validate event flow via logs
 
 
-### Step 4 — Add Metrics
+### Step 4 — Add Metrics Endpoints
 
 * Integrate Prometheus client libraries
 * Expose `/metrics` endpoints
 
 #### 4.1 Redpanda
 
-  * Scrape metrics from Admin API port (default: 9644) at endpoint /public_metrics
+  * Scrape metrics from Admin API port (default: 9644) at endpoint /public_metrics 
   * Decide which metrics to monitor
 
 #### 4.2 Postgres

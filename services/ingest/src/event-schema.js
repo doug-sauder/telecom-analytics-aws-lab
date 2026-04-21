@@ -16,16 +16,16 @@ function normalizeEvent(payload = {}) {
   } = payload;
 
   if (!event_time || !entity_id || metrics == null) {
-    throw new Error('event_time, entity_id, and metrics are required');
+    throw new Error('validation: event_time, entity_id, and metrics are required');
   }
 
   if (typeof metrics !== 'object' || Array.isArray(metrics)) {
-    throw new Error('metrics must be an object');
+    throw new Error('validation: metrics must be an object');
   }
 
   const ts = new Date(event_time);
   if (Number.isNaN(ts.getTime())) {
-    throw new Error('event_time must be a valid timestamp string');
+    throw new Error('validation: event_time must be a valid timestamp string');
   }
 
   return {

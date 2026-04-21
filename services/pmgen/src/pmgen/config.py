@@ -15,3 +15,4 @@ class RuntimeConfig(BaseSettings):
     request_timeout_seconds: float = Field(default=5.0, gt=0)
     kafka_broker: str = "localhost:9092"
     kafka_topic: str = "pm.events"
+    prometheus_port: int = Field(default=8000, ge=1, le=65535)

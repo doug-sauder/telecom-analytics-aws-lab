@@ -26,12 +26,12 @@ router.post('/', async (req, res) => {
 
     return res.status(201).json({ event_id: id });
   } catch (err) {
-    if (err.message === 'event_time, entity_id, and metrics are required' ||
-        err.message === 'metrics must be an object' ||
-        err.message === 'event_time must be a valid timestamp string') {
+    if (
+      typeof err?.message === 'string' &&
+      err.message.startsWith('validation:')
+    ) {
       return res.status(400).json({ error: err.message });
     }
-
     console.error('Failed to insert event', err);
     return res.status(500).json({ error: 'internal_server_error' });
   }

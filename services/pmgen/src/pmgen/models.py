@@ -4,7 +4,6 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
 class EventMetrics(BaseModel):
     dl_prb_util_pct: float = Field(ge=0, le=100)
     ul_prb_util_pct: float = Field(ge=0, le=100)

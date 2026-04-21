@@ -1,11 +1,19 @@
 import json
+import time
 from typing import Protocol
 
-from aiokafka import AIOKafkaProducer
 import httpx
+from aiokafka import AIOKafkaProducer
 
 from pmgen.config import RuntimeConfig
 from pmgen.models import PMEvent
+from pmgen.metrics import (
+    KAFKA_EVENTS_FAILED,
+    KAFKA_EVENTS_SENT,
+    KAFKA_SEND_DURATION,
+    KAFKA_SEND_ERRORS,
+    KAFKA_SENDS_IN_PROGRESS,
+)
 
 
 class EventSender(Protocol):
@@ -57,12 +65,26 @@ class KafkaEventSender:
         return self._producer
 
     async def send(self, event: PMEvent) -> None:
-        producer = await self._ensure_started()
-        await producer.send_and_wait(
-            self._topic,
-            value=event.model_dump(mode="json"),
-            key=event.entity_id,
-        )
+        try:
+            producer = await self._ensure_started()
+            payload = event.model_dump(mode="json")
+            KAFKA_SENDS_IN_PROGRESS.inc()
+            start_time = time.perf_counter()
+            try:
+                await producer.send_and_wait(
+                    self._topic,
+                    value=payload,
+                    key=event.entity_id,
+                )
+                KAFKA_EVENTS_SENT.inc()
+            finally:
+                end_time = time.perf_counter()
+                KAFKA_SEND_DURATION.observe(end_time - start_time)
+                KAFKA_SENDS_IN_PROGRESS.dec()
+        except Exception as exc:
+            KAFKA_EVENTS_FAILED.inc()
+            KAFKA_SEND_ERRORS.labels(type=type(exc).__name__).inc()
+            raise
 
     async def aclose(self) -> None:
         if self._producer is not None:
