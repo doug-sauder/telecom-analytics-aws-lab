@@ -38,6 +38,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 12,
             "gradientMode": "none",
@@ -70,8 +71,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "orange",
@@ -107,6 +107,7 @@
           "sort": "none"
         }
       },
+      "pluginVersion": "11.6.0",
       "targets": [
         {
           "datasource": {
@@ -124,8 +125,9 @@
       "type": "timeseries"
     }
   ],
+  "preload": false,
   "refresh": "10s",
-  "schemaVersion": 39,
+  "schemaVersion": 41,
   "tags": [
     "phase0",
     "telecom"
@@ -139,8 +141,7 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "Telecom KPIs",
-  "uid": "telecom-kpis",
-  "version": 1,
-  "weekStart": ""
+  "title": "RAN KPIs",
+  "uid": "telecom-ran-kpis",
+  "version": 1
 }

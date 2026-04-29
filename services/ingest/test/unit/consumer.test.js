@@ -6,13 +6,33 @@ const metrics = {
   eventsRejected: { inc: jest.fn() },
   kafkaMessagesProcessed: { inc: jest.fn() },
   kafkaBatchDurationSeconds: { startTimer: jest.fn(() => kafkaBatchTimerEnd) },
+  consumerLag: { set: jest.fn() },
 };
 
 jest.unstable_mockModule('../../src/metrics.js', () => ({
   metrics,
 }));
 
-const { processMessages, handleConsumerBatch } = await import('../../src/consumer.js');
+const { calculateConsumerLag, processMessages, handleConsumerBatch } = await import('../../src/consumer.js');
+
+describe('calculateConsumerLag', () => {
+  it('uses the KafkaJS offsetLag helper when it is available', () => {
+    const result = calculateConsumerLag({
+      offsetLag: () => '7',
+    });
+
+    expect(result).toBe(7);
+  });
+
+  it('falls back to high watermark and last offset metadata', () => {
+    const result = calculateConsumerLag({
+      highWatermark: '10',
+      lastOffset: () => '6',
+    });
+
+    expect(result).toBe(3);
+  });
+});
 
 describe('processMessages', () => {
   beforeEach(() => {
@@ -142,6 +162,8 @@ describe('processMessages', () => {
       batch: {
         topic: 'pm.events',
         partition: 0,
+        highWatermark: '5',
+        lastOffset: () => '2',
         messages: [
           {
             offset: '1',
@@ -170,6 +192,10 @@ describe('processMessages', () => {
 
     expect(metrics.kafkaBatchDurationSeconds.startTimer).toHaveBeenCalledTimes(1);
     expect(kafkaBatchTimerEnd).toHaveBeenCalledTimes(1);
+    expect(metrics.consumerLag.set).toHaveBeenCalledWith({
+      topic: 'pm.events',
+      partition: '0',
+    }, 2);
     expect(resolveOffset).toHaveBeenCalledWith('1');
     expect(resolveOffset).toHaveBeenCalledWith('2');
     expect(heartbeat).toHaveBeenCalledTimes(1);

@@ -16,3 +16,11 @@ datasources:
       timescaledb: false
     isDefault: true
     editable: false
+
+  - name: Prometheus
+    uid: grafana-prometheus-datasource
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090/
+    isDefault: false
+    editable: false

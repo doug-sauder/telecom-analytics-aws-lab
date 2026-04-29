@@ -213,11 +213,16 @@ No schema changes required.
 
 ### Step 5 — Add Prometheus
 
-* Configure scrape targets
-* Validate metric collection
+  * Configure scrape targets
+  * Validate metric collection
 
 
 ### Step 6 — Update Grafana
+
+  * Build out Grafana dashboards
+
+    - Platform dashboards
+    - Telecom Analytics dashboard
 
 * Add dashboards for:
 

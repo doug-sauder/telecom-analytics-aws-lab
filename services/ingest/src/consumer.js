@@ -21,6 +21,53 @@ function chunk(items, size) {
 }
 
 /**
+ * Read KafkaJS batch lag as a non-negative numeric value.
+ *
+ * @param {object} batch KafkaJS batch object for one topic partition.
+ * @returns {number | null} Lag value when KafkaJS exposes enough metadata, otherwise null.
+ */
+function calculateConsumerLag(batch) {
+  if (typeof batch.offsetLag === 'function') {
+    const offsetLag = Number(batch.offsetLag());
+    if (Number.isFinite(offsetLag)) {
+      return Math.max(offsetLag, 0);
+    }
+  }
+
+  if (batch.highWatermark === undefined || typeof batch.lastOffset !== 'function') {
+    return null;
+  }
+
+  const highWatermark = Number(batch.highWatermark);
+  const lastOffset = Number(batch.lastOffset());
+
+  if (!Number.isFinite(highWatermark) || !Number.isFinite(lastOffset)) {
+    return null;
+  }
+
+  return Math.max(highWatermark - lastOffset - 1, 0);
+}
+
+/**
+ * Record current consumer lag for the topic partition represented by a KafkaJS batch.
+ *
+ * @param {object} batch KafkaJS batch object for one topic partition.
+ * @returns {void}
+ */
+function observeConsumerLag(batch) {
+  const lag = calculateConsumerLag(batch);
+
+  if (lag === null) {
+    return;
+  }
+
+  metrics.consumerLag.set({
+    topic: batch.topic,
+    partition: String(batch.partition),
+  }, lag);
+}
+
+/**
  * Parse, validate, and batch-insert Kafka messages.
  * 
  * @param {Array} messages Kafka messages represented as `{ topic, partition, offset, value }`.
@@ -124,6 +171,7 @@ async function handleConsumerBatch(
 
     await heartbeat();
     await commitOffsetsIfNecessary();
+    observeConsumerLag(batch);
 
     logger.info('Processed Kafka batch', {
       topic: batch.topic,
@@ -187,9 +235,10 @@ async function startConsumer({
   return consumer;
 }
 
-export { processMessages, handleConsumerBatch, startConsumer };
+export { calculateConsumerLag, processMessages, handleConsumerBatch, startConsumer };
 
 export default {
+  calculateConsumerLag,
   processMessages,
   handleConsumerBatch,
   startConsumer,

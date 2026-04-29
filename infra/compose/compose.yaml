@@ -42,6 +42,7 @@ services:
       - TOPIC_NAME=pm.events
       - BATCH_SIZE=100
       - POLL_INTERVAL_MS=500
+      - CONSUMER_GROUP_ID=telecom.analytics.ingest
     networks:
       - analytics-net
     ports:
@@ -52,28 +53,6 @@ services:
       timeout: 3s
       retries: 20
       start_period: 5s
-  
-  grafana:
-    image: grafana/grafana:11.6.0
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-    networks:
-      - analytics-net
-    ports:
-      - "3001:3000"
-    volumes:
-      - ../grafana/provisioning:/etc/grafana/provisioning:ro
-      - ../grafana/dashboards:/var/lib/grafana/dashboards:ro
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health >/dev/null 2>&1 || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-      start_period: 20s
 
   postgres:
     image: postgres:18
@@ -135,9 +114,11 @@ services:
     ports:
       - "19092:19092"
       - "9644:9644"
+    volumes:
+      - ../redpanda/bootstrap.yaml:/etc/redpanda/.bootstrap.yaml 
 
   redpanda-init:
-    image: redpandadata/redpanda:latest
+    image: docker.redpanda.com/redpandadata/redpanda:v26.1.2
     depends_on:
       redpanda:
         condition: service_healthy
@@ -173,9 +154,34 @@ services:
       timeout: 5s
       retries: 12
       start_period: 20s
+  
+  grafana:
+    image: grafana/grafana:11.6.0
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    networks:
+      - analytics-net
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ../grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../grafana/dashboards:/var/lib/grafana/dashboards:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
 networks:
   analytics-net:
 
 volumes:
   pgdata:
   prometheus-data:
+  grafana-data:

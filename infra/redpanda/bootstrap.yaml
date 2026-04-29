@@ -1,0 +1,4 @@
+enable_consumer_group_metrics:
+  - group
+  - partition
+  - consumer_lag
