@@ -54,10 +54,17 @@ SELECT
     date_trunc('minute', event_time) AS ts,
     avg(NULLIF(metrics->>'dl_prb_util_pct', '')::double precision) AS dl_prb_util_pct_avg,
     avg(NULLIF(metrics->>'ul_prb_util_pct', '')::double precision) AS ul_prb_util_pct_avg,
+    avg(NULLIF(metrics->>'rrc_conn_avg', '')::double precision) AS rrc_conn_avg,
+    avg(NULLIF(metrics->>'drop_rate_pct', '')::double precision) AS drop_rate_pct_avg,
     count(*) AS samples
 FROM pm_events
 WHERE
-    (metrics ? 'dl_prb_util_pct' OR metrics ? 'ul_prb_util_pct')
+    (
+        metrics ? 'dl_prb_util_pct'
+        OR metrics ? 'ul_prb_util_pct'
+        OR metrics ? 'rrc_conn_avg'
+        OR metrics ? 'drop_rate_pct'
+    )
 GROUP BY 1
 ORDER BY 1;
 
