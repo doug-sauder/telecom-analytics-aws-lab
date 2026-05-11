@@ -1,6 +1,8 @@
 name: analytics
 
 services:
+
+  # Service to similate a telecom telemetry agent, sending PM events as a Kafka producer
   pmgen:
     build:
       context: ../../services/pmgen
@@ -23,6 +25,7 @@ services:
     ports:
       - "8000:8000"
 
+  # Service to ingest events as a Kafka consumer and store them in the database
   ingest:
     build:
       context: ../../services/ingest
@@ -54,6 +57,7 @@ services:
       retries: 20
       start_period: 5s
 
+  # Postgres - database to store PM events
   postgres:
     image: postgres:18
     environment:
@@ -74,6 +78,7 @@ services:
       timeout: 5s
       retries: 5
 
+  # Service to export Postgres metrics to Prometheus
   postgres-exporter:
     image: quay.io/prometheuscommunity/postgres-exporter:latest
     depends_on:
@@ -95,6 +100,7 @@ services:
       timeout: 5s
       retries: 5
 
+  # Redpanda - event broker (Kafka substitute)
   redpanda:
     image: docker.redpanda.com/redpandadata/redpanda:v26.1.2
     command:
@@ -117,6 +123,7 @@ services:
     volumes:
       - ../redpanda/bootstrap.yaml:/etc/redpanda/.bootstrap.yaml 
 
+  # Init container to create the Kafka topic in Redpanda
   redpanda-init:
     image: docker.redpanda.com/redpandadata/redpanda:v26.1.2
     depends_on:
@@ -132,6 +139,7 @@ services:
     networks:
       - analytics-net
 
+  # Prometheus - metrics collector
   prometheus:
     image: prom/prometheus:v3.7.3
     depends_on:
@@ -154,7 +162,8 @@ services:
       timeout: 5s
       retries: 12
       start_period: 20s
-  
+
+  # Grafana - metrics visualization  
   grafana:
     image: grafana/grafana:11.6.0
     depends_on:
@@ -178,6 +187,7 @@ services:
       retries: 12
       start_period: 20s
 
+# Named network shared by all services
 networks:
   analytics-net:
 

@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "telecom-smoke-tests"
+version = "0.1.0"
+description = "Smoke tests for cloud-native telecom analytics"
+requires-python = ">=3.12"
+dependencies = [
+  "requests>=2.32,<3.0",
+]

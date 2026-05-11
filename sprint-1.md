@@ -2,7 +2,7 @@
 
 ## 1. Overview
 
-Phase 1 introduces **event-driven ingestion** and **basic observability**. The system transitions from a tightly coupled HTTP → DB model to a **decoupled, queue-based pipeline**.
+Phase 1 introduces **event-driven ingestion** and **basic observability**. The system transitions from a tightly coupled HTTP-to-DB model to a **decoupled, event-driven ingestion pipeline**. The HTTP API remains for compatibility.
 
 **Primary theme:** controlled data flow + operational visibility
 
@@ -10,10 +10,10 @@ Phase 1 introduces **event-driven ingestion** and **basic observability**. The s
 ## 2. Objectives
 
 ### 2.1 Functional Objectives
-- Introduce a message broker (Redpanda, Kafka-compatible)
-- Transition event flow to:
-  - `pmgen → queue → ingest → Postgres`
-- Implement batch-based ingestion from the queue
+- Introduce an event broker (Redpanda, Kafka-compatible)
+- Transition to event-driven ingestion pipeline:
+  - `pmgen → event broker → ingest → Postgres`
+- Implement batch-based ingestion
 - Preserve existing event schema and DB model
 
 ### 2.2 Operational Objectives
@@ -24,16 +24,82 @@ Phase 1 introduces **event-driven ingestion** and **basic observability**. The s
 
 ## 3. Architecture (Phase 1 Target)
 
+The analytics platform collects telecom telemetry data, stores it, and makes it available
+for monitoring.
+
+### 3.1. Event Flow
+
+The generator (pmgen) sends the telemetry data as *events* to the event broker (Redpanda),
+which in turn delivers the events to the collector (ingest). The collector stores the
+data in an SQL database (Postgres). This event flow is shown in the following diagram. 
+
+```mermaid
+flowchart LR
+    pmgen["pmgen<br/>(producer)"]
+    redpanda["Redpanda<br/>(event broker)"]
+    ingest["ingest<br/>(consumer)"]
+    postgres[("PostgreSQL<br/>(database)")]
+
+    pmgen -->|"publishes PM events<br/>topic: pm.events"| redpanda
+    redpanda -->|"consumes events<br/>consumer group"| ingest
+    ingest -->|"stores validated events"| postgres
 ```
-pmgen (producer)
-↓
-message queue
-↓
-ingest (consumer)
-↓
-Postgres
-↓
-Grafana
+
+The following points provide further details on the components:
+
+  - pmgen
+    - Written in Python
+    - Generates telecom telemetry (simulated) as events
+
+  - Redpanda
+    - Kafka-compatible event broker
+
+  - ingest
+    - Written in JavaScript/Node.js/Express
+    - Consumes events
+    - Stores event data to an SQL database
+
+  - PostgreSQL
+    - Stores telecom analytics data
+    - Available as a datasource for visualization (Grafana)
+
+<!--
+![Alt text](docs/images/architecture.png)
+-->
+
+### 3.2. Telecom Analytics Dashboard
+
+The Telecom Analytics dashboard provides information to monitor the (simulated)
+telecommunications network. The purpose is distinct from the other platform
+dashboards, which support monitoring the analytics platform itself.
+
+```mermaid
+flowchart TB
+    grafana["Grafana<br/>(Telecom Analytics dashboard)"]
+    postgres[("Postgres")]
+
+    grafana -->|"queries telemetry data"| postgres
+```
+
+### 3.3 Platform Dashboards
+
+Platform dashboards provide information about the analytics platform overall
+and the individual services that comprise it.
+
+```mermaid
+flowchart TB
+    grafana["Grafana<br/>(platform dashboards)"]
+    prometheus["Prometheus"]
+    pmgen["pmgen"]
+    redpanda["Redpanda"]
+    ingest["ingest"]
+    postgres-exporter["Postgres-Exporter"]
+
+    grafana -->|queries operational metrics| prometheus
+    prometheus -->|"scrapes operational metrics"| pmgen
+    prometheus -->|"scrapes operational metrics"| redpanda
+    prometheus -->|"scrapes operational metrics"| ingest
+    prometheus -->|"scrapes operational metrics"| postgres-exporter
 ```
 
 
@@ -57,7 +123,8 @@ Grafana
 
 ## 5. System Design
 
-### 5.1 Message Broker
+
+### 5.1 Event Broker
 
 **Technology:** Redpanda (Kafka-compatible)
 
@@ -82,30 +149,38 @@ topic: pm.events
 **Responsibilities:**
 
 * Generate synthetic telecom events
-* Publish events to `pm.events` topic
+* Publish events to event broker's `pm.events` topic
 
 **Configuration:**
 
-* `KAFKA_BROKER`
-* `KAFKA_TOPIC`
+* `PMGEN_KAFKA_BROKER`
+* `PMGEN_KAFKA_TOPIC`
 
 **Metrics (Prometheus):**
 
-* `events_generated_total`
+* `pmgen_events_generated_total`
+* `pmgen_kafka_events_sent_total`
+* `pmgen_kafka_events_failed_total`
+* `pmgen_kafka_sends_in_progress`
+* `pmgen_kafka_send_duration_seconds`
+* `pmgen_kafka_send_errors_total`
 
 
 ### 5.3 ingest (Consumer)
 
 **Responsibilities:**
 
-* Consume events from queue
+* Consume events from event broker's `pm.events` topic
 * Validate payloads
 * Batch insert into Postgres
 
 **Behavior:**
 
-* Poll queue continuously
+* Poll event broker continuously
 * Process in batches (configurable)
+* Provide at-least-once delivery semantics
+* Commit consumer offsets only after validated events are durably written to Postgres
+* Leave offsets uncommitted when Postgres writes fail so the event broker can redeliver after recovery
 * Use `ON CONFLICT DO NOTHING` for idempotency
 
 **Configuration:**
@@ -117,9 +192,11 @@ topic: pm.events
 
 **Metrics (Prometheus):**
 
-* `events_processed_total`
-* `db_insert_latency_seconds`
-* `consumer_lag`
+* `ingest_events_inserted_total`
+* `ingest_events_rejected_total`
+* `ingest_kafka_messages_processed_total`
+* `ingest_kafka_batch_duration_seconds`
+* `ingest_consumer_lag`
 
 
 ### 5.4 Postgres
@@ -147,7 +224,7 @@ No schema changes required.
 #### Grafana (extensions)
 
 * ingestion rate
-* queue lag
+* consumer lag
 * DB insert latency
 
 
@@ -155,18 +232,21 @@ No schema changes required.
 
 ### 6.1 New Services
 
-* `redpanda`
-* `pmgen` (updated)
-* `prometheus`
+* `postgres-exporter` - exports metrics for postgres
+* `redpanda` - event broker
+* `redpanda-init` - creates pm.events topic
+* `prometheus` - metrics collector
 
 ### 6.2 Updated Services
 
-* `ingest` (consumer instead of HTTP-only)
+* `pmgen` - becomes event producer
+* `ingest` - becomes event consumer
+* `grafana` - adds platform metrics
 
 
 ## 7. Implementation Plan
 
-### Step 1 — Add Message Broker
+### Step 1 — Add Event Broker
 
 * Add Redpanda container to compose
 * Verify topic creation and connectivity
@@ -191,22 +271,22 @@ No schema changes required.
 * Integrate Prometheus client libraries
 * Expose `/metrics` endpoints
 
-#### 4.1 Redpanda
+#### Step 4.1 Redpanda
 
   * Scrape metrics from Admin API port (default: 9644) at endpoint /public_metrics 
   * Decide which metrics to monitor
 
-#### 4.2 Postgres
+#### Step 4.2 Postgres
 
  * Add postgres-exporter container to Docker Compose
  * Decide which metrics to monitor
 
-#### 4.3 Pmgen
+#### Step 4.3 Pmgen
 
   * Decide the metrics to expose
   * Integrate client library and expose metrics
 
-#### 4.4 Ingest
+#### Step 4.4 Ingest
 
   * Decide the metrics to expose
   * Integrate client library and expose metrics
@@ -228,7 +308,7 @@ No schema changes required.
 
   * ingestion throughput
   * processing latency
-  * queue lag
+  * consumer lag
 
 
 ### Step 7 — Failure Testing
@@ -282,14 +362,14 @@ No schema changes required.
 Phase 1 is complete when:
 
 * Full pipeline runs locally with a single command
-* pmgen produces events to queue
-* ingest consumes and writes to Postgres
+* pmgen publishes events
+* ingest consumes events and writes to Postgres
 * System tolerates restarts without data loss
 * Metrics are visible in Prometheus
 * Grafana displays both:
 
   * telecom metrics
-  * system metrics
+  * platform metrics
 
 
 ## 12. Stretch Goals (Optional)
@@ -298,4 +378,3 @@ Phase 1 is complete when:
 * Topic partitioning by `entity_id`
 * Replay capability (offset reset)
 * Basic schema validation layer
-

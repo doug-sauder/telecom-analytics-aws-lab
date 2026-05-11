@@ -1,7 +1,5 @@
-# Project Charter  
-## Cloud-Native Telecom Analytics Platform
+# Project Charter -- Cloud-Native Telecom Analytics Platform
 
----
 
 ## 1. Purpose and Goal
 
@@ -11,7 +9,6 @@ Design, build, and operate a production-style, cloud-native analytics platform t
 
 This project is intended as a **skills-retraining and portfolio artifact**, not a commercial product.
 
----
 
 ## 2. Target Skill Outcomes
 
@@ -45,7 +42,6 @@ The project is explicitly structured to demonstrate competency in:
 - Telecom-style event modeling (CDRs, QoS, signaling-like data)
 - Time-series and event-driven processing patterns
 
----
 
 ## 3. System Scope
 
@@ -66,7 +62,6 @@ The project is explicitly structured to demonstrate competency in:
 - Full billing or OSS/BSS implementations
 - Pixel-perfect UI/UX
 
----
 
 ## 4. Architectural Principles
 
@@ -87,7 +82,6 @@ The system will adhere to the following principles:
 5. **Incremental Complexity**  
    Start simple; evolve architecture only when justified.
 
----
 
 ## 5. Technology Constraints
 
@@ -100,7 +94,6 @@ The system will adhere to the following principles:
 
 Alternative technologies may be introduced **only with explicit justification**.
 
----
 
 ## 6. Success Criteria
 
@@ -113,7 +106,6 @@ This project is considered successful if:
 - System behavior under failure is understood and documented
 - Architecture and tradeoffs can be clearly explained in an interview
 
----
 
 ## 7. Non-Functional Requirements
 
@@ -123,7 +115,6 @@ This project is considered successful if:
 - Rollbacks must be possible
 - System must tolerate single-pod failures without total outage
 
----
 
 ## 8. Deliverables
 
@@ -133,6 +124,4 @@ This project is considered successful if:
 - CI/CD pipelines
 - Terraform modules
 - Demonstration scripts (load, failure, scaling)
-
----
 

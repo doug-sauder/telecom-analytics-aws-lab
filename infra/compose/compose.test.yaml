@@ -1,7 +1,30 @@
 name: analytics
 
 services:
-  test:
+
+  smoke-test:
+    profiles:
+      - smoke
+    build:
+      context: ../../tests/smoke
+      dockerfile: Dockerfile
+    depends_on:
+      ingest:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      prometheus:
+        condition: service_healthy
+      grafana:
+        condition: service_healthy
+      postgres-exporter:
+        condition: service_healthy
+      redpanda-init:
+        condition: service_completed_successfully
+    networks:
+      - analytics-net
+
+  ingest-http-test:
     profiles: ["test"]
     image: node:20-alpine
     working_dir: /workspace
