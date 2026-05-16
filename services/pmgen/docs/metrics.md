@@ -10,12 +10,12 @@ Prometheus Python client exposes them with `_total` at scrape time.
 
 | Metric | Type | Labels | What it measures |
 | --- | --- | --- | --- |
-| `pmgen_events_generated_total` | Counter | none | Synthetic PM events created by the generator. |
-| `pmgen_kafka_events_sent_total` | Counter | none | PM events acknowledged by Kafka. |
-| `pmgen_kafka_events_failed_total` | Counter | none | PM events that failed during Kafka send handling. |
-| `pmgen_kafka_sends_in_progress` | Gauge | none | Kafka sends currently waiting for completion. |
-| `pmgen_kafka_send_duration_seconds` | Histogram | `le` | Kafka `send_and_wait` duration in seconds. |
-| `pmgen_kafka_send_errors_total` | Counter | `type` | Kafka send failures grouped by exception class name. |
+| pmgen_events_generated_total | Counter | none | Synthetic PM events created by the generator. |
+| pmgen_kafka_events_sent_total | Counter | none | PM events acknowledged by Kafka. |
+| pmgen_kafka_events_failed_total | Counter | none | PM events that failed during Kafka send handling. |
+| pmgen_kafka_sends_in_progress | Gauge | none | Kafka sends currently waiting for completion. |
+| pmgen_kafka_send_duration_seconds | Histogram | le | Kafka `send_and_wait` duration in seconds. |
+| pmgen_kafka_send_errors_total | Counter | type | Kafka send failures grouped by exception class name. |
 
 ## Interpreting the Metric Set
 

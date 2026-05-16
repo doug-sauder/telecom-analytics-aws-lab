@@ -5,13 +5,13 @@ port configured by `PORT` (`3000` by default). The custom metrics below are
 defined by the ingest service in addition to the default Node.js process and
 Prometheus client metrics, which use the `ingest_` prefix.
 
-| Metric | Type | Labels | What it measures |
+| Metric | Type | Labels | Description |
 | --- | --- | --- | --- |
-| `ingest_events_inserted_total` | Counter | `path` | Events successfully inserted into Postgres. |
-| `ingest_events_rejected_total` | Counter | `path`, `reason` | Events rejected before or during insert accounting. |
-| `ingest_kafka_messages_processed_total` | Counter | `result` | Kafka messages classified as valid or invalid. |
-| `ingest_kafka_batch_duration_seconds` | Histogram | `le` | Time spent processing a Kafka batch. |
-| `ingest_consumer_lag` | Gauge | `topic`, `partition` | Approximate Kafka consumer lag by topic partition. |
+| ingest_events_inserted_total | Counter | path | Counts events inserted into PostgreSQL. |
+| ingest_events_rejected_total | Counter | path, reason | Counts rejected events (invalid or duplicate). |
+| ingest_kafka_messages_processed_total | Counter | result | Counts valid and invalid Kafka messages processed. |
+| ingest_kafka_batch_duration_seconds | Histogram | le | Measures Kafka batch processing duration. |
+| ingest_consumer_lag | Gauge | topic, partition | Approximates Kafka consumer lag by topic partition. |
 
 ## Interpreting the Metric Set
 
