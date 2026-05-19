@@ -6,8 +6,8 @@ services:
     profiles:
       - smoke
     build:
-      context: ../../tests/smoke
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: tests/smoke/Dockerfile
     depends_on:
       ingest:
         condition: service_healthy

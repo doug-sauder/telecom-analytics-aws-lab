@@ -1,11 +1,10 @@
-import json
 import time
 from typing import Protocol
 
 import httpx
-from aiokafka import AIOKafkaProducer
 
 from pmgen.config import RuntimeConfig
+from pmgen.kafka import KafkaEventPublisher
 from pmgen.models import PMEvent
 from pmgen.metrics import (
     KAFKA_EVENTS_FAILED,
@@ -46,36 +45,16 @@ class HttpEventSender:
 
 class KafkaEventSender:
     def __init__(self, config: RuntimeConfig) -> None:
-        self._producer: AIOKafkaProducer | None = None
-        self._bootstrap_servers = config.kafka_broker
-        self._topic = config.kafka_topic
+        # Wrap the reusable publisher with pmgen-specific metrics.
+        self._publisher = KafkaEventPublisher(config.kafka_broker, config.kafka_topic)
         self._target_for_logging = config.kafka_broker
-
-    async def _ensure_started(self) -> AIOKafkaProducer:
-        if self._producer is None:
-            producer = AIOKafkaProducer(
-                bootstrap_servers=self._bootstrap_servers,
-                value_serializer=lambda v: json.dumps(v).encode("utf-8"),
-                key_serializer=lambda k: k.encode("utf-8"),
-                acks="all",
-                linger_ms=5,
-            )
-            await producer.start()
-            self._producer = producer
-        return self._producer
 
     async def send(self, event: PMEvent) -> None:
         try:
-            producer = await self._ensure_started()
-            payload = event.model_dump(mode="json")
             KAFKA_SENDS_IN_PROGRESS.inc()
             start_time = time.perf_counter()
             try:
-                await producer.send_and_wait(
-                    self._topic,
-                    value=payload,
-                    key=event.entity_id,
-                )
+                await self._publisher.publish_event(event)
                 KAFKA_EVENTS_SENT.inc()
             finally:
                 end_time = time.perf_counter()
@@ -87,9 +66,7 @@ class KafkaEventSender:
             raise
 
     async def aclose(self) -> None:
-        if self._producer is not None:
-            await self._producer.stop()
-            self._producer = None
+        await self._publisher.aclose()
 
     def target(self) -> str:
         return self._target_for_logging

@@ -59,7 +59,8 @@ SELECT
     count(*) AS samples
 FROM pm_events
 WHERE
-    (
+    source <> 'smoke-test'
+    AND (
         metrics ? 'dl_prb_util_pct'
         OR metrics ? 'ul_prb_util_pct'
         OR metrics ? 'rrc_conn_avg'
@@ -80,7 +81,8 @@ SELECT
     count(*) AS samples
 FROM pm_events
 WHERE
-    (metrics ? 'dl_prb_util_pct' OR metrics ? 'ul_prb_util_pct')
+    source <> 'smoke-test'
+    AND (metrics ? 'dl_prb_util_pct' OR metrics ? 'ul_prb_util_pct')
 GROUP BY 1, 2;
 
 COMMIT;

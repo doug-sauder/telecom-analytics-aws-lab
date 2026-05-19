@@ -8,6 +8,7 @@ import typer
 
 from prometheus_client import start_http_server
 
+from pmgen.admin_server import start_admin_http_server
 from pmgen.config import RuntimeConfig
 from pmgen.generator import EventGenerator
 from pmgen.runtime import PmgenRuntime
@@ -30,7 +31,7 @@ def produce() -> None:
     config = RuntimeConfig()
     print(f"Producing events to Kafka broker {config.kafka_broker} on topic {config.kafka_topic}")
     runtime = PmgenRuntime(config, KafkaEventSender(config))
-    start_http_server(config.prometheus_port)
+    start_admin_http_server(config.prometheus_port)
     asyncio.run(_run_with_signals(runtime))
 
 
