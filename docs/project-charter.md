@@ -1,11 +1,10 @@
 # Project Charter -- Cloud-Native Telecom Analytics Platform
 
-
 ## 1. Purpose and Goal
 
 ### Primary Goal
 
-Design, build, and operate a production-style, cloud-native analytics platform that ingests telecom-style event data, processes it in near real time, and exposes analytics via APIs and dashboards—explicitly to demonstrate modern DevOps and platform engineering competencies.
+Design, build, and operate a production-style, cloud-native analytics platform that ingests telecom event data, processes it in near real time, and exposes analytics via APIs and dashboards—explicitly to demonstrate modern DevOps and platform engineering competencies.
 
 This project is intended as a **skills-retraining and portfolio artifact**, not a commercial product.
 
@@ -124,4 +123,3 @@ This project is considered successful if:
 - CI/CD pipelines
 - Terraform modules
 - Demonstration scripts (load, failure, scaling)
-

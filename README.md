@@ -1,74 +1,157 @@
 # Cloud-Native Telecom Analytics Platform
 
+## Purpose
 
-## Overview
+The Cloud-Native Telecom Analytics project is a hands-on
+professional-development initiative to design, build, deploy, and operate a
+telecom analytics platform, focusing on cloud-native architecture and modern
+engineering practices.
 
-This project is a hands-on, individually directed initiative to design and
-build a cloud-native telecom analytics platform using modern distributed-system
-and DevOps practices.
+The project delivers an analytics platform that ingests simulated telecom
+telemetry, processes and stores the ingested data, and presents the resulting
+analytics through visual dashboards for monitoring and analysis. The project
+also provides operational support for the platform itself: collecting metrics,
+logs, and tracing data from platform services, and presenting that operational
+data for monitoring and analysis.
 
-The project emphasizes working software, operational visibility, and practical
-platform engineering over isolated code samples or tutorial-style exercises.
+The project demonstrates practical skills in:
 
-Key characteristics of the project include:
+- **AI-assisted engineering**: disciplined use of AI as a development partner,
+  combined with human technical judgment, validation, and ownership
 
-- **Hands-on**  
-  The platform is implemented as working software with real service
-  integration, telemetry flows, monitoring, dashboards, automated testing,
-  and infrastructure configuration.
+- **Architecture**: microservices design, APIs, event-driven communication,
+  and distributed-system integration
 
-- **Individual initiative**  
-  The project is independently designed and developed with human architectural
-  ownership and review, while selectively leveraging AI-assisted development
-  tools to improve implementation efficiency and accelerate learning.
+- **Development practices**: version control, documentation, code review, and
+  iterative software development workflows
 
-- **Cloud-native**  
-  The platform uses a microservices-oriented architecture and incorporates
-  modern engineering practices including containerization, observability,
-  automation, CI/CD-oriented workflows, and infrastructure-as-code concepts.
+- **Verification and delivery**: automated testing, smoke testing, and
+  CI/CD-oriented validation workflows
 
-- **Telecom analytics**  
-  A simulated telecom telemetry generator produces performance-management
-  events that flow through a streaming and analytics pipeline into persistent
-  storage, metrics systems, and Grafana-based operational dashboards.
+- **Deployment**: containerization, orchestration, scaling, configuration
+  management, and infrastructure automation
 
-
-## Professional Development and Portfolio Context
-
-This repository is maintained as part of an ongoing professional development
-and technical portfolio initiative focused on cloud-native systems,
-distributed architectures, observability, and modern platform engineering
-practices.
-
-The project builds upon prior experience developing and operating highly
-available telecom and collaboration platforms while providing a practical
-environment to strengthen and expand skills in areas including:
-
-- event-driven architecture
-- streaming platforms and asynchronous messaging
-- containerized microservices
-- observability and operational telemetry
-- infrastructure automation
-- CI/CD-oriented workflows
-- Kubernetes-oriented deployment patterns
-- cloud-native operational design
-
-The platform is intentionally designed as an end-to-end engineering exercise
-rather than a tutorial or isolated coding sample. The emphasis is on practical
-system integration, operational visibility, testing strategy, deployment
-automation, and production-style engineering workflows.
-
-Development work in this repository includes architecture design,
-implementation, testing, infrastructure configuration, monitoring,
-documentation, and operational analysis. The repository therefore serves both
-as a technical portfolio project and as an active professional skills
-development effort aligned with current industry practices.
-
-
-## Goals
+- **Operations**: monitoring, observability, troubleshooting, dashboards, and
+  production-style operational support
 
 See [Project Charter](docs/project-charter.md) for scope and goals.
 
-## Architecture
 
-See [Architecture](docs/phase0-architecture.md) for the architecture.
+## High-Level Architecture
+
+The telecom telemetry data is processed through an event pipeline, shown here:
+
+```mermaid
+flowchart LR
+    pmgen["pmgen<br/>(telemetry producer)"]
+    redpanda["Redpanda<br/>(Kafka-compatible broker)"]
+    ingest["ingest<br/>(event consumer)"]
+    postgres[("PostgreSQL<br/>(telemetry store)")]
+    grafana["Grafana<br/>(dashboards)"]
+
+    pmgen -->|"publishes PM events"| redpanda
+    redpanda -->|"consumed by"| ingest
+    ingest -->|"persists validated events"| postgres
+
+    postgres -->|"telecom KPI queries"| grafana
+```
+
+Operational metrics are provided by Prometheus and Grafana, as shown here:
+
+```mermaid
+flowchart LR
+    pmgen["pmgen<br/>(telemetry producer)"]
+    redpanda["Redpanda<br/>(Kafka-compatible broker)"]
+    ingest["ingest<br/>(event consumer)"]
+    postgres[("PostgreSQL<br/>(telemetry store)")]
+    prometheus["Prometheus<br/>(metrics store)"]
+    grafana["Grafana<br/>(dashboards)"]
+    postgresExporter["postgres-exporter"]
+
+    prometheus -->|"platform metric queries"| grafana
+
+    pmgen -->|"metrics"| prometheus
+    ingest -->|"metrics"| prometheus
+    redpanda -->|"metrics"| prometheus
+    postgresExporter -->|"database metrics"| prometheus
+    postgres -->|"database stats"| postgresExporter
+```
+
+
+
+For the complete architecture description, see
+[Architecture](docs/architecture.md).
+
+## Repository Layout
+
+A summary view of the repository layout is shown below.
+
+    .
+    ├── docs
+    ├── infra
+    │   ├── compose
+    │   ├── db
+    │   ├── grafana
+    │   ├── prometheus
+    │   └── redpanda
+    ├── services
+    │   ├── ingest
+    │   │   ├── docs
+    │   │   ├── src
+    │   │   └── test
+    │   └── pmgen
+    │       ├── docs
+    │       └── src
+    └── tests
+        └── smoke
+
+The `docs` directory contains system-level documentation, including a runbook
+and architecture design document.
+
+The `infra` directory contains configuration and other information that
+pertain to the components that are implemented but are not source code
+projects.
+
+The `services` directory contains subprojects that are created specifically
+for this project. These services have a `src` subdirectory that contains
+the subproject's source code.
+
+The `tests` directory contains code and configuration for system-level tests.
+
+## Quick Start
+
+The analytics platform runs in Docker containers orchestrated by Docker Compose.
+
+**Prerequisites**
+
+  - GitHub repository cloned locally.
+  - TCP ports available on localhost:
+    - 3000 (ingest)
+    - 3001 (Grafana)
+    - 8000 (pmgen)
+    - 9090 (Prometheus)
+    - 9187 (postgres-exporter)
+    - 19092 (Redpanda)
+    - 9644 (Redpanda)
+  - Docker Desktop installed.
+
+**Start Up**
+
+From the project root directory:
+
+```bash
+docker compose -f infra/compose/compose.yaml up -d --build
+```
+
+**View Dashboards**
+
+  - Grafana URL: `http://localhost:3001`
+  - Default Grafana credentials: `admin` / `admin`
+
+**Shut Down**
+
+From the project root directory:
+
+```bash
+docker compose -f infra/compose/compose.yaml down
+```

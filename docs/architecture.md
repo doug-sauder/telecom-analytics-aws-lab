@@ -2,15 +2,10 @@
 
 ## 1. Purpose
 
-The Cloud-Native Telecom Analytics platform is a production-style portfolio
-system for ingesting simulated telecom performance-management telemetry,
-storing it for analysis, and exposing both domain analytics and platform health
-through dashboards.
-
-The project is not intended to integrate with a real telecom network. Its
-purpose is to demonstrate cloud-native service boundaries, event-driven
-ingestion, persistence, observability, and operational practices in a system
-that resembles a realistic telecom analytics workload.
+This project implements an analytics platform for telecom
+performance-management telemetry. It does not aim to create a viable
+product, but instead demonstrates architectural patterns and deployment
+models aligned with modern cloud-native best practices.
 
 ## 2. Scope
 
