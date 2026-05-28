@@ -109,12 +109,11 @@ The `docs` directory contains system-level documentation, including a runbook
 and architecture design document.
 
 The `infra` directory contains configuration and other information that
-pertain to the components that are implemented but are not source code
-projects.
+pertain to components that are not source code projects.
 
-The `services` directory contains subprojects that are created specifically
-for this project. These services have a `src` subdirectory that contains
-the subproject's source code.
+The `services` directory contains the subprojects created specifically for
+this project. These services have a `src` subdirectory that contains the
+subproject's source code.
 
 The `tests` directory contains code and configuration for system-level tests.
 

@@ -341,7 +341,7 @@ No schema changes required.
 
 | Risk                          | Mitigation                                                     |
 | ----------------------------- | -------------------------------------------------------------- |
-| Kafka client complexity       | Use well-supported libraries (kafkajs, confluent-kafka-python) |
+| Kafka client complexity       | Use well-supported libraries (kafkajs, aiokafka)               |
 | Message loss due to misconfig | Use safe producer/consumer defaults                            |
 | Resource usage (local dev)    | Tune Redpanda (low memory mode)                                |
 | Silent failures               | Add logging + metrics early                                    |
