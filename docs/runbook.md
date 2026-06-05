@@ -4,8 +4,26 @@
 ## Prerequisites
 
   - GitHub repository cloned locally.
-  - TCP ports available on localhost: 3000 (ingest), 3001 (Grafana).
   - Docker Desktop installed.
+  - Node.js and npm installed for local ingest service tests:
+    - Node.js `>=18`
+    - npm dependencies installed with `npm ci` from `services/ingest`
+  - Python installed for local PM generator and smoke-test development:
+    - Python `>=3.12` is recommended because the smoke-test package requires it.
+    - `pmgen` supports Python `>=3.11`.
+    - Python build tooling dependencies are installed automatically from each
+      package's `pyproject.toml` when using `pip install`.
+    - `pmgen` runtime dependencies: `httpx`, `pydantic`, `pydantic-settings`,
+      `typer`, `aiokafka`, and `prometheus-client`
+    - smoke-test runtime dependencies: `psycopg[binary]` and `requests`
+  - TCP ports available on localhost:
+    - 3000 (ingest)
+    - 3001 (Grafana)
+    - 8000 (pmgen)
+    - 9090 (Prometheus)
+    - 9187 (postgres-exporter)
+    - 19092 (Redpanda)
+    - 9644 (Redpanda)
   
 Run Docker Compose commands (below) from project root directory.
 
