@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redpanda-bootstrap
+  namespace: data-services
+  labels:
+    app.kubernetes.io/name: redpanda
+    app.kubernetes.io/component: broker
+    app.kubernetes.io/part-of: cloud-native-telecom-analytics
+data:
+  .bootstrap.yaml: |
+    enable_consumer_group_metrics:
+      - group
+      - partition
+      - consumer_lag

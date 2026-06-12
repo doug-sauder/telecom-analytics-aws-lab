@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-exporter
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: postgres-exporter
+    app.kubernetes.io/component: metrics-exporter
+    app.kubernetes.io/part-of: cloud-native-telecom-analytics
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: postgres-exporter
+  ports:
+    - name: http
+      port: 9187
+      targetPort: http

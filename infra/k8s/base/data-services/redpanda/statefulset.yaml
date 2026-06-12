@@ -1,0 +1,99 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redpanda
+  namespace: data-services
+  labels:
+    app.kubernetes.io/name: redpanda
+    app.kubernetes.io/component: broker
+    app.kubernetes.io/part-of: cloud-native-telecom-analytics
+spec:
+  serviceName: redpanda-internal
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: redpanda
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: redpanda
+        app.kubernetes.io/component: broker
+        app.kubernetes.io/part-of: cloud-native-telecom-analytics
+    spec:
+      containers:
+        - name: redpanda
+          image: docker.redpanda.com/redpandadata/redpanda:v26.1.2
+          imagePullPolicy: IfNotPresent
+          command:
+            - rpk
+            - redpanda
+            - start
+            - --mode
+            - dev-container
+            - --smp
+            - "1"
+            - --kafka-addr
+            - internal://0.0.0.0:9092
+            - --advertise-kafka-addr
+            - internal://redpanda.data-services.svc.cluster.local:9092
+          ports:
+            - name: kafka
+              containerPort: 9092
+            - name: admin
+              containerPort: 9644
+          startupProbe:
+            exec:
+              command:
+                - rpk
+                - cluster
+                - info
+                - --brokers
+                - localhost:9092
+            failureThreshold: 30
+            periodSeconds: 5
+            timeoutSeconds: 5
+          readinessProbe:
+            exec:
+              command:
+                - rpk
+                - cluster
+                - info
+                - --brokers
+                - localhost:9092
+            periodSeconds: 5
+            timeoutSeconds: 5
+          livenessProbe:
+            exec:
+              command:
+                - rpk
+                - cluster
+                - info
+                - --brokers
+                - localhost:9092
+            failureThreshold: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+          volumeMounts:
+            - name: redpanda-data
+              mountPath: /var/lib/redpanda/data
+            - name: redpanda-bootstrap
+              mountPath: /etc/redpanda/.bootstrap.yaml
+              subPath: .bootstrap.yaml
+              readOnly: true
+      volumes:
+        - name: redpanda-bootstrap
+          configMap:
+            name: redpanda-bootstrap
+  volumeClaimTemplates:
+    - metadata:
+        name: redpanda-data
+        labels:
+          app.kubernetes.io/name: redpanda
+          app.kubernetes.io/component: broker
+          app.kubernetes.io/part-of: cloud-native-telecom-analytics
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 5Gi

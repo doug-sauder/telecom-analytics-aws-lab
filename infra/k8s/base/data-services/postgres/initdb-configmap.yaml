@@ -1,0 +1,84 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-initdb
+  namespace: data-services
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: cloud-native-telecom-analytics
+data:
+  01-schema.sql: |
+    -- Phase 0: Cloud-Native Telecom Analytics Platform
+    -- Postgres schema (raw PM events + simple KPI view)
+
+    BEGIN;
+
+    CREATE SCHEMA IF NOT EXISTS analytics;
+    SET search_path TO analytics;
+
+    CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+    CREATE TABLE IF NOT EXISTS pm_events (
+        event_id       uuid        PRIMARY KEY,
+        schema_version integer     NOT NULL DEFAULT 1,
+        source         text        NOT NULL,
+        event_time     timestamptz NOT NULL,
+        ingest_time    timestamptz NOT NULL DEFAULT now(),
+        entity_type    text        NOT NULL DEFAULT 'cell',
+        entity_id      text        NOT NULL,
+        metrics        jsonb       NOT NULL,
+
+        CONSTRAINT pm_events_event_time_reasonable
+          CHECK (event_time > '2000-01-01'::timestamptz AND event_time < '2100-01-01'::timestamptz),
+        CONSTRAINT pm_events_metrics_is_object
+          CHECK (jsonb_typeof(metrics) = 'object')
+    );
+
+    CREATE INDEX IF NOT EXISTS pm_events_event_time_idx
+        ON pm_events (event_time);
+
+    CREATE INDEX IF NOT EXISTS pm_events_entity_time_idx
+        ON pm_events (entity_id, event_time);
+
+    CREATE INDEX IF NOT EXISTS pm_events_source_time_idx
+        ON pm_events (source, event_time);
+
+    CREATE OR REPLACE VIEW v_kpi_utilization_1m AS
+    SELECT
+        date_trunc('minute', event_time) AS ts,
+        avg(NULLIF(metrics->>'dl_prb_util_pct', '')::double precision) AS dl_prb_util_pct_avg,
+        avg(NULLIF(metrics->>'ul_prb_util_pct', '')::double precision) AS ul_prb_util_pct_avg,
+        avg(NULLIF(metrics->>'rrc_conn_avg', '')::double precision) AS rrc_conn_avg,
+        avg(NULLIF(metrics->>'drop_rate_pct', '')::double precision) AS drop_rate_pct_avg,
+        count(*) AS samples
+    FROM pm_events
+    WHERE
+        source <> 'smoke-test'
+        AND (
+            metrics ? 'dl_prb_util_pct'
+            OR metrics ? 'ul_prb_util_pct'
+            OR metrics ? 'rrc_conn_avg'
+            OR metrics ? 'drop_rate_pct'
+        )
+    GROUP BY 1
+    ORDER BY 1;
+
+    CREATE OR REPLACE VIEW v_kpi_utilization_1m_by_entity AS
+    SELECT
+        date_trunc('minute', event_time) AS ts,
+        entity_id,
+        avg(NULLIF(metrics->>'dl_prb_util_pct', '')::double precision) AS dl_prb_util_pct_avg,
+        avg(NULLIF(metrics->>'ul_prb_util_pct', '')::double precision) AS ul_prb_util_pct_avg,
+        count(*) AS samples
+    FROM pm_events
+    WHERE
+        source <> 'smoke-test'
+        AND (metrics ? 'dl_prb_util_pct' OR metrics ? 'ul_prb_util_pct')
+    GROUP BY 1, 2;
+
+    COMMIT;
+  02-monitoring-user.sql: |
+    CREATE USER postgres_exporter WITH PASSWORD 'insecure=dev.only';
+    GRANT CONNECT ON DATABASE telecom TO postgres_exporter;
+    GRANT pg_monitor TO postgres_exporter;

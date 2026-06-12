@@ -1,0 +1,42 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: monitoring
+
+generatorOptions:
+  disableNameSuffixHash: true
+  labels:
+    app.kubernetes.io/part-of: cloud-native-telecom-analytics
+
+configMapGenerator:
+  - name: prometheus-config
+    files:
+      - prometheus.yaml=config/prometheus.yaml
+  - name: grafana-datasources
+    files:
+      - grafana-datasources.yaml=config/grafana-datasources.yaml
+  - name: grafana-dashboard-provider
+    files:
+      - grafana-dashboard-provider.yaml=config/grafana-dashboard-provider.yaml
+  - name: grafana-dashboards-platform
+    files:
+      - redpanda.json=dashboards/platform/redpanda.json
+      - postgres.json=dashboards/platform/postgres.json
+      - ingest.json=dashboards/platform/ingest.json
+      - pmgen.json=dashboards/platform/pmgen.json
+  - name: grafana-dashboards-system
+    files:
+      - system-overview.json=dashboards/system/system-overview.json
+  - name: grafana-dashboards-telecom
+    files:
+      - telecom-ran-kpis.json=dashboards/telecom/telecom-ran-kpis.json
+
+resources:
+  - postgres-exporter-secret.yaml
+  - postgres-exporter.yaml
+  - postgres-exporter-service.yaml
+  - prometheus.yaml
+  - prometheus-service.yaml
+  - grafana-secret.yaml
+  - grafana.yaml
+  - grafana-service.yaml

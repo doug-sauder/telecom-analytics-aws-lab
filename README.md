@@ -154,3 +154,13 @@ From the project root directory:
 ```bash
 docker compose -f infra/compose/compose.yaml down
 ```
+
+## Screenshots
+
+Below is a screenshot of the RAN KPI dashboard in Grafana.
+
+![Grafana RAN KPIs Dashboard](docs/images/grafana-ran-kpis.png "Grafana RAN KPIs Dashboard")
+
+Below is a screenshot of the Redpanda dashboard in Grafana.
+
+![Grafana Redpanda Dashboard](docs/images/grafana-redpanda.png "Grafana Redpanda Dashboard")

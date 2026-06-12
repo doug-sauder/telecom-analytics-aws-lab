@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ingest
+  namespace: telecom-analytics
+  labels:
+    app.kubernetes.io/name: ingest
+    app.kubernetes.io/component: event-consumer
+    app.kubernetes.io/part-of: cloud-native-telecom-analytics
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ingest
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ingest
+        app.kubernetes.io/component: event-consumer
+        app.kubernetes.io/part-of: cloud-native-telecom-analytics
+    spec:
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:18
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: ingest-config
+            - secretRef:
+                name: ingest-db-credentials
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+
+              until pg_isready -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE"; do
+                echo "Waiting for Postgres at $PGHOST:$PGPORT"
+                sleep 5
+              done
+        - name: wait-for-redpanda-topic
+          image: docker.redpanda.com/redpandadata/redpanda:v26.1.2
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+
+              broker="redpanda.data-services.svc.cluster.local:9092"
+
+              until rpk --brokers "$broker" topic describe pm.events >/dev/null 2>&1; do
+                echo "Waiting for Redpanda topic pm.events at $broker"
+                sleep 5
+              done
+      containers:
+        - name: ingest
+          image: telecom-analytics-ingest:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: ingest-config
+            - secretRef:
+                name: ingest-db-credentials
+          startupProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            failureThreshold: 30
+            periodSeconds: 5
+            timeoutSeconds: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            failureThreshold: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

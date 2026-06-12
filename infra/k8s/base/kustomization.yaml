@@ -1,0 +1,9 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespaces
+  - data-services/postgres
+  - data-services/redpanda
+  - telecom-analytics
+  - monitoring

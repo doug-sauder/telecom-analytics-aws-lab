@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ingest-config
+  namespace: telecom-analytics
+  labels:
+    app.kubernetes.io/name: ingest
+    app.kubernetes.io/component: event-consumer
+    app.kubernetes.io/part-of: cloud-native-telecom-analytics
+data:
+  PGHOST: postgres.data-services.svc.cluster.local
+  PGPORT: "5432"
+  PGUSER: telecom
+  PGDATABASE: telecom
+  PORT: "3000"
+  BROKER_URL: redpanda.data-services.svc.cluster.local:9092
+  TOPIC_NAME: pm.events
+  BATCH_SIZE: "100"
+  POLL_INTERVAL_MS: "500"
+  CONSUMER_GROUP_ID: telecom.analytics.ingest

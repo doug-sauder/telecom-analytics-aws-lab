@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pmgen
+  namespace: telecom-analytics
+  labels:
+    app.kubernetes.io/name: pmgen
+    app.kubernetes.io/component: telemetry-producer
+    app.kubernetes.io/part-of: cloud-native-telecom-analytics
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pmgen
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: pmgen
+        app.kubernetes.io/component: telemetry-producer
+        app.kubernetes.io/part-of: cloud-native-telecom-analytics
+    spec:
+      initContainers:
+        - name: wait-for-redpanda-topic
+          image: docker.redpanda.com/redpandadata/redpanda:v26.1.2
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+
+              broker="redpanda.data-services.svc.cluster.local:9092"
+
+              until rpk --brokers "$broker" topic describe pm.events >/dev/null 2>&1; do
+                echo "Waiting for Redpanda topic pm.events at $broker"
+                sleep 5
+              done
+      containers:
+        - name: pmgen
+          image: telecom-analytics-pmgen:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: pmgen-config
+          startupProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            failureThreshold: 30
+            periodSeconds: 5
+            timeoutSeconds: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            failureThreshold: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: telecom-analytics
+  labels:
+    app.kubernetes.io/part-of: cloud-native-telecom-analytics
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    app.kubernetes.io/part-of: cloud-native-telecom-analytics
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: data-services
+  labels:
+    app.kubernetes.io/part-of: cloud-native-telecom-analytics
