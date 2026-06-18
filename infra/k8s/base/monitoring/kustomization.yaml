@@ -33,10 +33,13 @@ configMapGenerator:
 
 resources:
   - postgres-exporter-secret.yaml
+  - postgres-exporter-configmap.yaml
   - postgres-exporter.yaml
   - postgres-exporter-service.yaml
   - prometheus.yaml
   - prometheus-service.yaml
   - grafana-secret.yaml
+  - grafana-datasource-configmap.yaml
+  - grafana-datasource-secret.yaml
   - grafana.yaml
   - grafana-service.yaml

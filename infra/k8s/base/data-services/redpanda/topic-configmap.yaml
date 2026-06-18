@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redpanda-config
+  namespace: data-services
+  labels:
+    app.kubernetes.io/name: redpanda
+    app.kubernetes.io/component: messaging
+    app.kubernetes.io/part-of: cloud-native-telecom-analytics
+data:
+  REDPANDA_BROKER: redpanda.data-services.svc.cluster.local:9092
+  REDPANDA_TOPIC: pm.events

@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasource-config
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/component: visualization
+    app.kubernetes.io/part-of: cloud-native-telecom-analytics
+data:
+  POSTGRES_URI: postgres.data-services.svc.cluster.local:5432
+  PROMETHEUS_URI: http://prometheus.monitoring.svc.cluster.local:9090/

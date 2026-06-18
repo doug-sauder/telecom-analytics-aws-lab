@@ -27,6 +27,8 @@ spec:
             - name: http
               containerPort: 9187
           envFrom:
+            - configMapRef:
+                name: postgres-exporter-config
             - secretRef:
                 name: postgres-exporter-credentials
           startupProbe:

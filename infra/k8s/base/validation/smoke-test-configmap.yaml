@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: smoke-test-config
+  namespace: telecom-analytics
+  labels:
+    app.kubernetes.io/name: smoke-test
+    app.kubernetes.io/component: validation
+    app.kubernetes.io/part-of: cloud-native-telecom-analytics
+data:
+  SMOKE_CHECK_PROMETHEUS: "false"
+  SMOKE_VALIDATE_PMGEN_FLOW: "true"
+  SMOKE_INGEST_READY_URL: http://ingest.telecom-analytics.svc.cluster.local:3000/readyz
+  SMOKE_PMGEN_READY_URL: http://pmgen.telecom-analytics.svc.cluster.local:8000/readyz
+  SMOKE_KAFKA_BROKER: redpanda.data-services.svc.cluster.local:9092
+  SMOKE_KAFKA_TOPIC: pm.events
+  SMOKE_PGHOST: postgres.data-services.svc.cluster.local
+  SMOKE_PGPORT: "5432"
+  SMOKE_DB_POLL_TIMEOUT_SECONDS: "60"
+  SMOKE_DB_POLL_INTERVAL_SECONDS: "2"

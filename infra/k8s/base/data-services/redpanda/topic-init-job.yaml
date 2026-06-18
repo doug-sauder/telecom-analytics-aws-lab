@@ -21,20 +21,24 @@ spec:
         - name: redpanda-topic-init
           image: docker.redpanda.com/redpandadata/redpanda:v26.1.2
           imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: redpanda-config
           command:
             - /bin/sh
             - -c
             - |
               set -eu
 
-              broker="redpanda.data-services.svc.cluster.local:9092"
+              broker="$REDPANDA_BROKER"
+              topic="$REDPANDA_TOPIC"
 
               until rpk --brokers "$broker" cluster info >/dev/null 2>&1; do
                 echo "Waiting for Redpanda at $broker"
                 sleep 5
               done
 
-              rpk --brokers "$broker" topic create pm.events \
+              rpk --brokers "$broker" topic create "$topic" \
                 --partitions 1 \
                 --replicas 1 \
                 --if-not-exists

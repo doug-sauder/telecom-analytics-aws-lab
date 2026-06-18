@@ -23,16 +23,20 @@ spec:
         - name: wait-for-redpanda-topic
           image: docker.redpanda.com/redpandadata/redpanda:v26.1.2
           imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: pmgen-config
           command:
             - /bin/sh
             - -c
             - |
               set -eu
 
-              broker="redpanda.data-services.svc.cluster.local:9092"
+              broker="$PMGEN_KAFKA_BROKER"
+              topic="$PMGEN_KAFKA_TOPIC"
 
-              until rpk --brokers "$broker" topic describe pm.events >/dev/null 2>&1; do
-                echo "Waiting for Redpanda topic pm.events at $broker"
+              until rpk --brokers "$broker" topic describe "$topic" >/dev/null 2>&1; do
+                echo "Waiting for Redpanda topic $topic at $broker"
                 sleep 5
               done
       containers:

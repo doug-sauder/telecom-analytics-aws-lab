@@ -32,6 +32,10 @@ spec:
           envFrom:
             - secretRef:
                 name: grafana-admin
+            - secretRef:
+                name: grafana-datasource-credentials
+            - configMapRef:
+                name: grafana-datasource-config
           startupProbe:
             httpGet:
               path: /api/health

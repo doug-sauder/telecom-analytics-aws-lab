@@ -1,13 +1,12 @@
 apiVersion: v1
-kind: Secret
+kind: ConfigMap
 metadata:
-  name: postgres-exporter-credentials
+  name: postgres-exporter-config
   namespace: monitoring
   labels:
     app.kubernetes.io/name: postgres-exporter
     app.kubernetes.io/component: metrics-exporter
     app.kubernetes.io/part-of: cloud-native-telecom-analytics
-type: Opaque
-stringData:
-  DATA_SOURCE_USER: postgres_exporter
-  DATA_SOURCE_PASS: insecure=dev.only
+data:
+  DATA_SOURCE_URI: postgres.data-services.svc.cluster.local:5432/telecom?sslmode=disable
+  PG_EXPORTER_COLLECTION_TIMEOUT: 10s

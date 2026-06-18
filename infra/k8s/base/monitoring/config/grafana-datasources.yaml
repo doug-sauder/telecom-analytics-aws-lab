@@ -5,12 +5,12 @@ datasources:
     uid: grafana-postgresql-datasource
     type: postgres
     access: proxy
-    url: postgres.data-services.svc.cluster.local:5432
-    user: telecom
+    url: $POSTGRES_URI
+    user: $POSTGRES_USER
     secureJsonData:
-      password: telecom
+      password: $POSTGRES_PASSWORD
     jsonData:
-      database: telecom
+      database: $POSTGRES_DB
       sslmode: disable
       postgresVersion: 1800
       timescaledb: false
@@ -21,6 +21,6 @@ datasources:
     uid: grafana-prometheus-datasource
     type: prometheus
     access: proxy
-    url: http://prometheus.monitoring.svc.cluster.local:9090/
+    url: $PROMETHEUS_URI
     isDefault: false
     editable: false

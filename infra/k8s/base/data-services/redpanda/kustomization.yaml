@@ -3,6 +3,7 @@ kind: Kustomization
 
 resources:
   - bootstrap-configmap.yaml
+  - topic-configmap.yaml
   - service.yaml
   - statefulset.yaml
   - topic-init-job.yaml
