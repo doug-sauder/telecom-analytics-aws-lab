@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
         - name: postgres-exporter
-          image: quay.io/prometheuscommunity/postgres-exporter:latest
+          image: quay.io/prometheuscommunity/postgres-exporter:v0.19.1
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
