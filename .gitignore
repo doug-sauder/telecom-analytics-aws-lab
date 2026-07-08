@@ -1,5 +1,7 @@
 # My files
 dws-*
+*.local.md
+local-docs/
 
 # Finder
 .DS_Store
