@@ -91,7 +91,7 @@ async function insertEventsBatch(events) {
   }
 
   const values = [];
-  // Build a single parameterized INSERT so Kafka batches map to one DB round-trip.
+  // Build a single parameterized INSERT so queue batches map to one DB round-trip.
   const placeholders = events.map((event, index) => {
     const base = index * 7;
     values.push(

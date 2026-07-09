@@ -1,11 +1,17 @@
-import { Kafka, logLevel } from 'kafkajs';
+import {
+  DeleteMessageBatchCommand,
+  ReceiveMessageCommand,
+  SQSClient,
+} from '@aws-sdk/client-sqs';
 import { insertEventsBatch } from './db.js';
 import { normalizeEvent } from './event-schema.js';
 import { metrics } from './metrics.js';
 
+// Shared batching helpers keep SQS receive/delete limits separate from database insert sizing.
+
 /**
- * Split an array into evenly sized chunks for batched database writes.
- * 
+ * Split an array into evenly sized chunks for batched database writes or SQS deletes.
+ *
  * @param {Array} items Items to split.
  * @param {number} size Maximum number of items per chunk.
  * @returns {Array[]} Array of chunks preserving input order.
@@ -21,81 +27,49 @@ function chunk(items, size) {
 }
 
 /**
- * Read KafkaJS batch lag as a non-negative numeric value.
+ * Pause the polling loop after empty receives or retryable failures.
  *
- * @param {object} batch KafkaJS batch object for one topic partition.
- * @returns {number | null} Lag value when KafkaJS exposes enough metadata, otherwise null.
+ * @param {number} delayMs Number of milliseconds to wait.
+ * @returns {Promise<void>} Resolves after the delay.
  */
-function calculateConsumerLag(batch) {
-  if (typeof batch.offsetLag === 'function') {
-    const offsetLag = Number(batch.offsetLag());
-    if (Number.isFinite(offsetLag)) {
-      return Math.max(offsetLag, 0);
-    }
-  }
-
-  if (batch.highWatermark === undefined || typeof batch.lastOffset !== 'function') {
-    return null;
-  }
-
-  const highWatermark = Number(batch.highWatermark);
-  const lastOffset = Number(batch.lastOffset());
-
-  if (!Number.isFinite(highWatermark) || !Number.isFinite(lastOffset)) {
-    return null;
-  }
-
-  return Math.max(highWatermark - lastOffset - 1, 0);
+function sleep(delayMs) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, delayMs);
+  });
 }
 
+// Message processing validates SQS bodies and leaves acknowledgement decisions to the caller.
+
 /**
- * Record current consumer lag for the topic partition represented by a KafkaJS batch.
+ * Parse, validate, and batch-insert SQS messages.
  *
- * @param {object} batch KafkaJS batch object for one topic partition.
- * @returns {void}
- */
-function observeConsumerLag(batch) {
-  const lag = calculateConsumerLag(batch);
-
-  if (lag === null) {
-    return;
-  }
-
-  metrics.consumerLag.set({
-    topic: batch.topic,
-    partition: String(batch.partition),
-  }, lag);
-}
-
-/**
- * Parse, validate, and batch-insert Kafka messages.
- * 
- * @param {Array} messages Kafka messages represented as `{ topic, partition, offset, value }`.
+ * @param {Array} messages SQS messages represented as `{ messageId, receiptHandle, body }`.
  * @param {object} options Processing configuration.
  * @param {number} options.batchSize Maximum number of events per DB insert.
  * @param {Function} options.insertBatch Async function that persists a batch of normalized events.
  * @param {object} [options.logger=console] Logger used for invalid-payload warnings.
- * @returns {Promise<object>} Process result containing processed offsets, inserted row count, and invalid message count.
- * @throws {Error} Propagates database insert failures so the caller can avoid committing offsets.
+ * @returns {Promise<object>} Process result containing receipt handles to delete and message counts.
+ * @throws {Error} Propagates database insert failures so SQS can redeliver messages.
  */
 async function processMessages(messages, { batchSize, insertBatch, logger = console } = {}) {
   const validMessages = [];
+  const receiptHandlesToDelete = [];
   let invalidCount = 0;
 
   for (const message of messages) {
     try {
-      const payload = JSON.parse(message.value.toString('utf8'));
+      const payload = JSON.parse(message.body);
       const event = normalizeEvent(payload);
       validMessages.push({ ...message, event });
     } catch (err) {
-      // Bad payloads are logged and skipped so one poison message does not stall the partition.
+      // Bad payloads are acknowledged after the batch succeeds so one poison message does not loop forever.
       invalidCount += 1;
       const reason = err instanceof SyntaxError ? 'json_parse' : 'validation';
-      metrics.eventsRejected.inc({ path: 'kafka', reason });
-      logger.warn('Skipping invalid Kafka message', {
-        topic: message.topic,
-        partition: message.partition,
-        offset: message.offset,
+      metrics.eventsRejected.inc({ path: 'sqs', reason });
+      metrics.sqsMessagesProcessed.inc({ result: 'invalid' });
+      receiptHandlesToDelete.push(message.receiptHandle);
+      logger.warn('Skipping invalid SQS message', {
+        messageId: message.messageId,
         reason,
         error: err.message,
       });
@@ -111,72 +85,91 @@ async function processMessages(messages, { batchSize, insertBatch, logger = cons
     insertedCount += result.insertedCount;
   }
 
-  metrics.eventsInserted.inc({ path: 'kafka' }, insertedCount);
-  metrics.eventsRejected.inc({ path: 'kafka', reason: 'duplicate' }, attemptedCount - insertedCount);
-  metrics.kafkaMessagesProcessed.inc({ result: 'valid' }, validMessages.length);
-  metrics.kafkaMessagesProcessed.inc({ result: 'invalid' }, invalidCount);
+  for (const message of validMessages) {
+    receiptHandlesToDelete.push(message.receiptHandle);
+  }
+
+  metrics.eventsInserted.inc({ path: 'sqs' }, insertedCount);
+  metrics.eventsRejected.inc({ path: 'sqs', reason: 'duplicate' }, attemptedCount - insertedCount);
+  metrics.sqsMessagesProcessed.inc({ result: 'valid' }, validMessages.length);
 
   return {
-    processedOffsets: validMessages.map((message) => message.offset),
+    receiptHandlesToDelete,
     insertedCount,
     invalidCount,
   };
 }
 
+// SQS acknowledgement deletes messages only after persistence and validation handling completes.
+
 /**
- * Process one Kafka batch and commit offsets only after successful persistence.
+ * Delete processed SQS messages in API-sized batches.
  *
- * @param {object} batchContext KafkaJS batch callback context.
- * @param {object} dependencies Services and configuration needed to process the batch.
+ * @param {object} sqsClient AWS SDK SQS client.
+ * @param {string} queueUrl Queue URL containing processed messages.
+ * @param {string[]} receiptHandles Receipt handles that should be acknowledged.
+ * @returns {Promise<void>} Resolves after all delete requests finish.
+ */
+async function deleteProcessedMessages(sqsClient, queueUrl, receiptHandles) {
+  const deleteBatches = chunk(receiptHandles, 10);
+
+  for (const deleteBatch of deleteBatches) {
+    const entries = deleteBatch.map((receiptHandle, index) => ({
+      Id: String(index),
+      ReceiptHandle: receiptHandle,
+    }));
+
+    const deleteResult = await sqsClient.send(new DeleteMessageBatchCommand({
+      QueueUrl: queueUrl,
+      Entries: entries,
+    }));
+
+    if (deleteResult.Failed && deleteResult.Failed.length > 0) {
+      throw new Error(`Failed to delete ${deleteResult.Failed.length} SQS messages`);
+    }
+  }
+}
+
+/**
+ * Process one SQS receive result and delete messages only after successful persistence.
+ *
+ * @param {Array} sqsMessages Raw messages returned by `ReceiveMessage`.
+ * @param {object} dependencies Services and configuration needed to process the receive result.
  * @param {number} dependencies.batchSize Maximum number of normalized events per DB insert.
  * @param {Function} dependencies.insertBatch Async function that persists a batch of normalized events.
- * @param {object} [dependencies.logger=console] Logger for batch processing output.
- * @returns {Promise<void>} Resolves after the batch has been processed and offsets have been committed.
+ * @param {object} dependencies.sqsClient AWS SDK SQS client.
+ * @param {string} dependencies.queueUrl Queue URL containing the messages.
+ * @param {object} [dependencies.logger=console] Logger for receive processing output.
+ * @returns {Promise<void>} Resolves after the messages have been processed and acknowledged.
  */
-async function handleConsumerBatch(
-  { batch, resolveOffset, heartbeat, commitOffsetsIfNecessary, isRunning, isStale },
-  { batchSize, insertBatch, logger = console },
+async function handleSqsMessages(
+  sqsMessages,
+  { batchSize, insertBatch, sqsClient, queueUrl, logger = console },
 ) {
-  if (!isRunning() || isStale()) {
+  if (sqsMessages.length === 0) {
     return;
   }
 
-  const endTimer = metrics.kafkaBatchDurationSeconds.startTimer();
+  const endTimer = metrics.sqsBatchDurationSeconds.startTimer();
 
   try {
-    // Keep the Kafka metadata we need for logging/commits while normalizing payloads for the DB.
-    const messages = batch.messages.map((message) => ({
-      topic: batch.topic,
-      partition: batch.partition,
-      offset: message.offset,
-      value: message.value,
+    const messages = sqsMessages.map((message) => ({
+      messageId: message.MessageId,
+      receiptHandle: message.ReceiptHandle,
+      body: message.Body,
     }));
 
-    const { processedOffsets, insertedCount, invalidCount } = await processMessages(messages, {
+    const { receiptHandlesToDelete, insertedCount, invalidCount } = await processMessages(messages, {
       batchSize,
       insertBatch,
       logger,
     });
 
-    // Offsets are committed only after the batch insert succeeds.
-    for (const offset of processedOffsets) {
-      resolveOffset(offset);
-    }
+    await deleteProcessedMessages(sqsClient, queueUrl, receiptHandlesToDelete);
 
-    for (const message of messages) {
-      if (!processedOffsets.includes(message.offset)) {
-        resolveOffset(message.offset);
-      }
-    }
-
-    await heartbeat();
-    await commitOffsetsIfNecessary();
-    observeConsumerLag(batch);
-
-    logger.info('Processed Kafka batch', {
-      topic: batch.topic,
-      partition: batch.partition,
-      messageCount: batch.messages.length,
+    logger.info('Processed SQS messages', {
+      queueUrl,
+      messageCount: messages.length,
       insertedCount,
       invalidCount,
     });
@@ -185,61 +178,108 @@ async function handleConsumerBatch(
   }
 }
 
+// Polling lifecycle owns long-poll receive calls and exposes a disconnect method for server shutdown.
+
 /**
- * Start the long-running Kafka consumer for the ingest service.
- * 
+ * Start the long-running SQS poller for the ingest service.
+ *
  * @param {object} options Consumer configuration, defaulting to environment variables.
- * @param {string} [options.brokerUrl] Comma-separated Kafka broker list.
- * @param {string} [options.topic] Topic to subscribe to.
- * @param {string} [options.groupId] Consumer group id for ingest.
+ * @param {string} [options.queueUrl] SQS queue URL to poll.
+ * @param {string} [options.region] AWS region for the SQS client.
+ * @param {string} [options.endpoint] Optional SQS endpoint override for local AWS-compatible services.
  * @param {number} [options.batchSize] Maximum number of normalized events per DB insert.
- * @param {number} [options.pollIntervalMs] Kafka fetch wait time in milliseconds.
- * @param {object} [options.logger=console] Logger for batch processing output.
- * @returns {Promise<object>} Connected Kafka consumer instance; call `disconnect()` during shutdown.
- * @throws {Error} When the consumer cannot connect, subscribe, or process a batch successfully.
+ * @param {number} [options.maxMessages] Maximum SQS messages per receive call, up to 10.
+ * @param {number} [options.waitTimeSeconds] SQS long-poll wait time in seconds.
+ * @param {number} [options.pollIntervalMs] Delay after empty receives or retryable failures.
+ * @param {object} [options.logger=console] Logger for poller output.
+ * @returns {Promise<object>} Running consumer handle; call `disconnect()` during shutdown.
+ * @throws {Error} When no queue URL is configured.
  */
 async function startConsumer({
-  brokerUrl = process.env.BROKER_URL || 'localhost:9092',
-  topic = process.env.TOPIC_NAME || 'pm.events',
-  groupId = process.env.CONSUMER_GROUP_ID || 'ingest',
+  queueUrl = process.env.SQS_QUEUE_URL,
+  region = process.env.AWS_REGION || 'us-east-1',
+  endpoint = process.env.SQS_ENDPOINT,
   batchSize = Number(process.env.BATCH_SIZE || 100),
+  maxMessages = Number(process.env.SQS_MAX_MESSAGES || 10),
+  waitTimeSeconds = Number(process.env.SQS_WAIT_TIME_SECONDS || 20),
   pollIntervalMs = Number(process.env.POLL_INTERVAL_MS || 500),
   logger = console,
 } = {}) {
-  const kafka = new Kafka({
-    clientId: 'ingest',
-    brokers: brokerUrl.split(',').map((broker) => broker.trim()).filter(Boolean),
-    logLevel: logLevel.NOTHING,
+  if (!queueUrl) {
+    throw new Error('SQS_QUEUE_URL is required to start the ingest consumer');
+  }
+
+  const sqsClient = new SQSClient({
+    region,
+    endpoint,
   });
 
-  const consumer = kafka.consumer({
-    groupId,
-    maxWaitTimeInMs: pollIntervalMs,
-  });
+  let running = true;
+  let activeAbortController = null;
 
-  await consumer.connect();
-  await consumer.subscribe({ topic, fromBeginning: false });
+  const pollLoop = async () => {
+    while (running) {
+      activeAbortController = new AbortController();
 
-  await consumer.run({
-    autoCommit: false,
-    eachBatchAutoResolve: false,
-    eachBatch: (batchContext) => handleConsumerBatch(batchContext, {
-      batchSize,
-      insertBatch: insertEventsBatch,
-      logger,
-    }),
-  });
+      try {
+        const receiveResult = await sqsClient.send(new ReceiveMessageCommand({
+          QueueUrl: queueUrl,
+          MaxNumberOfMessages: Math.min(Math.max(maxMessages, 1), 10),
+          WaitTimeSeconds: Math.min(Math.max(waitTimeSeconds, 0), 20),
+        }), {
+          abortSignal: activeAbortController.signal,
+        });
 
-  logger.info(`Kafka consumer subscribed to ${topic} via ${brokerUrl}`);
+        const messages = receiveResult.Messages || [];
+        await handleSqsMessages(messages, {
+          batchSize,
+          insertBatch: insertEventsBatch,
+          sqsClient,
+          queueUrl,
+          logger,
+        });
 
-  return consumer;
+        if (messages.length === 0) {
+          await sleep(pollIntervalMs);
+        }
+      } catch (err) {
+        if (!running) {
+          return;
+        }
+
+        logger.error('SQS poll failed', {
+          queueUrl,
+          error: err.message,
+        });
+        await sleep(pollIntervalMs);
+      } finally {
+        activeAbortController = null;
+      }
+    }
+  };
+
+  const loopPromise = pollLoop();
+  logger.info(`SQS consumer polling ${queueUrl}`);
+
+  return {
+    disconnect: async () => {
+      running = false;
+
+      if (activeAbortController) {
+        activeAbortController.abort();
+      }
+
+      await loopPromise;
+      sqsClient.destroy();
+    },
+  };
 }
 
-export { calculateConsumerLag, processMessages, handleConsumerBatch, startConsumer };
+export { processMessages, deleteProcessedMessages, handleSqsMessages, startConsumer };
 
 export default {
-  calculateConsumerLag,
   processMessages,
-  handleConsumerBatch,
+  deleteProcessedMessages,
+  handleSqsMessages,
   startConsumer,
 };

@@ -12,6 +12,11 @@ from pmgen.metrics import (
     KAFKA_SEND_DURATION,
     KAFKA_SEND_ERRORS,
     KAFKA_SENDS_IN_PROGRESS,
+    SQS_EVENTS_FAILED,
+    SQS_EVENTS_SENT,
+    SQS_SEND_DURATION,
+    SQS_SEND_ERRORS,
+    SQS_SENDS_IN_PROGRESS,
 )
 
 
@@ -63,6 +68,46 @@ class KafkaEventSender:
         except Exception as exc:
             KAFKA_EVENTS_FAILED.inc()
             KAFKA_SEND_ERRORS.labels(type=type(exc).__name__).inc()
+            raise
+
+    async def aclose(self) -> None:
+        await self._publisher.aclose()
+
+    def target(self) -> str:
+        return self._target_for_logging
+
+
+class SqsEventSender:
+    # PMGen transport adapter that publishes events to SQS and records
+    # producer-side delivery metrics.
+    def __init__(self, config: RuntimeConfig) -> None:
+        # Wrap the reusable publisher with pmgen-specific metrics.
+        if config.sqs_queue_url is None:
+            raise ValueError("PMGEN_SQS_QUEUE_URL is required when PMGEN_EVENT_TRANSPORT=sqs")
+
+        from pmgen.sqs import SqsEventPublisher
+
+        self._publisher = SqsEventPublisher(
+            queue_url=config.sqs_queue_url,
+            region=config.sqs_region,
+            endpoint_url=config.sqs_endpoint_url,
+        )
+        self._target_for_logging = config.sqs_queue_url
+
+    async def send(self, event: PMEvent) -> None:
+        try:
+            SQS_SENDS_IN_PROGRESS.inc()
+            start_time = time.perf_counter()
+            try:
+                await self._publisher.publish_event(event)
+                SQS_EVENTS_SENT.inc()
+            finally:
+                end_time = time.perf_counter()
+                SQS_SEND_DURATION.observe(end_time - start_time)
+                SQS_SENDS_IN_PROGRESS.dec()
+        except Exception as exc:
+            SQS_EVENTS_FAILED.inc()
+            SQS_SEND_ERRORS.labels(type=type(exc).__name__).inc()
             raise
 
     async def aclose(self) -> None:
