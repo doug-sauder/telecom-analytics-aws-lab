@@ -1,11 +1,13 @@
 # Ingest service (Node/Express)
 
 This service accepts POST /v1/events and stores raw PM (performance measurement) events into Postgres (schema `analytics.pm_events`).
+It also polls AWS SQS for JSON-encoded PM event messages and persists valid events in batches.
 
 ## Quick start (local):
 
 - Copy `.env.example` to `.env` and adjust if needed.
 - Install deps: `npm ci`
+- Configure SQS: set `SQS_QUEUE_URL` and, if needed, `AWS_REGION`.
 - Start: `npm start`
 
 ## Docker / Compose:
@@ -42,7 +44,7 @@ docker compose \
 ```
 
 `docker wait analytics-test-1` returns `0` when the integration test passes and a non-zero code when it fails.
-The current integration suite validates the legacy `POST /v1/events` path; it does not yet cover the Kafka consumer end-to-end flow.
+The current integration suite validates the legacy `POST /v1/events` path; it does not yet cover the SQS consumer end-to-end flow.
 
 ## Notes
 

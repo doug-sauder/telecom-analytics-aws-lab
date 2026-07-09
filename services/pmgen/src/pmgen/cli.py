@@ -3,7 +3,7 @@ import json
 import logging
 import signal
 
-from pmgen.transport import HttpEventSender, KafkaEventSender
+from pmgen.transport import EventSender, HttpEventSender, KafkaEventSender, SqsEventSender
 import typer
 
 from prometheus_client import start_http_server
@@ -26,11 +26,12 @@ def _setup_logging() -> None:
 
 @app.command("produce")
 def produce() -> None:
-    """Generate Kafka events and produce them to the configured topic."""
+    """Generate events and produce them to the configured event transport."""
     _setup_logging()
     config = RuntimeConfig()
-    print(f"Producing events to Kafka broker {config.kafka_broker} on topic {config.kafka_topic}")
-    runtime = PmgenRuntime(config, KafkaEventSender(config))
+    event_sender = _build_produce_sender(config)
+    print(f"Producing events to {config.event_transport} target {event_sender.target()}")
+    runtime = PmgenRuntime(config, event_sender)
     start_admin_http_server(config.prometheus_port)
     asyncio.run(_run_with_signals(runtime))
 
@@ -51,6 +52,15 @@ async def _run_with_signals(runtime: PmgenRuntime) -> None:
     for signame in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(signame, runtime.stop)
     await runtime.run_forever()
+
+
+def _build_produce_sender(config: RuntimeConfig) -> EventSender:
+    # Select the producer implementation from configuration while keeping the
+    # runtime loop transport-agnostic.
+    if config.event_transport == "sqs":
+        return SqsEventSender(config)
+
+    return KafkaEventSender(config)
 
 
 @app.command("generate-once")

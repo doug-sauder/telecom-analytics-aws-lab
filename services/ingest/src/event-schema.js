@@ -1,6 +1,6 @@
 /**
  * Normalize and validate an incoming PM event payload for downstream storage.
- * @param {object} payload Raw event payload from HTTP or Kafka.
+ * @param {object} payload Raw event payload from HTTP or SQS.
  * @returns {object} Normalized event with defaults applied and `event_time` converted to ISO format.
  * @throws {Error} When required fields are missing, `metrics` is not an object, or `event_time` is invalid.
  */

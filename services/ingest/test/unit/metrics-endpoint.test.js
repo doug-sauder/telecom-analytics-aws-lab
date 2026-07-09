@@ -2,7 +2,7 @@ import { jest } from '@jest/globals';
 
 const register = {
   contentType: 'text/plain; version=0.0.4; charset=utf-8',
-  metrics: jest.fn(async () => 'ingest_events_inserted_total{path="kafka"} 3\n'),
+  metrics: jest.fn(async () => 'ingest_events_inserted_total{path="sqs"} 3\n'),
 };
 
 jest.unstable_mockModule('../../src/db.js', () => ({
@@ -41,7 +41,7 @@ describe('GET /metrics', () => {
 
     expect(register.metrics).toHaveBeenCalledTimes(1);
     expect(res.set).toHaveBeenCalledWith('Content-Type', register.contentType);
-    expect(res.end).toHaveBeenCalledWith('ingest_events_inserted_total{path="kafka"} 3\n');
+    expect(res.end).toHaveBeenCalledWith('ingest_events_inserted_total{path="sqs"} 3\n');
     expect(res.sendStatus).not.toHaveBeenCalled();
   });
 });
