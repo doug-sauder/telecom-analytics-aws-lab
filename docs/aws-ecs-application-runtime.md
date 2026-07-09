@@ -40,6 +40,13 @@ The current local codebase still includes Kafka-oriented defaults. This phase
 therefore includes an implementation change before deployment: add SQS producer
 and consumer support, then deploy the SQS mode to ECS.
 
+**Important**: The `ingest` image does not import the trusted CA certificate chain
+needed to verify the PostgreSQL server certificate. Consequently, it opens the required
+TLS connection without authenticating the PostgreSQL server. In a real-world deployment,
+this omission would be a security flaw. Here, we made a quick fix, considered acceptable
+for a learning environment project. This is a flaw that could be fixed in the future (if
+the project continues).
+
 ## 3. Preconditions
 
 Before creating resources:
@@ -92,8 +99,8 @@ For `ingest`, preserve the existing database variables:
 
 | Name | Source |
 | --- | --- |
-| `PGHOST` | RDS-managed secret JSON key `host` |
-| `PGPORT` | RDS-managed secret JSON key `port` |
+| `PGHOST` | Non-secret environment variable, \<AWS host> |
+| `PGPORT` | Non-secret environment variable, `5432` |
 | `PGUSER` | RDS-managed secret JSON key `username` |
 | `PGPASSWORD` | RDS-managed secret JSON key `password` |
 | `PGDATABASE` | Non-secret environment variable, `telecom` |
@@ -329,15 +336,16 @@ Add non-secret environment variables:
 | `PORT` | `3000` |
 | `PGDATABASE` | `telecom` |
 | `EVENT_TRANSPORT` | `sqs` |
-| `SQS_QUEUE_URL` | Queue URL for `telecom-analytics-dev-pm-events` |
+| `SQS_QUEUE_URL` | \<redacted> |
 | `AWS_REGION` | `us-east-1` |
+| `PGHOST` | \<rds-endpoint> |
+| `PGPORT` | `5432` |
+| `PGSSLMODE` | `required` |
 
 Map these container secrets from the RDS-managed secret JSON:
 
 | Environment variable | JSON key |
 | --- | --- |
-| `PGHOST` | `host` |
-| `PGPORT` | `port` |
 | `PGUSER` | `username` |
 | `PGPASSWORD` | `password` |
 
@@ -345,12 +353,14 @@ Configure container health check after the image includes a suitable HTTP
 client:
 
 ```text
-CMD-SHELL,curl -fsS http://localhost:3000/readyz || exit 1
+CMD-SHELL,node -e "const http = require('http'); const request = http.get('http://127.0.0.1:3000/readyz', function(response) { process.exit(response.statusCode === 200 ? 0 : 1); }); request.on('error', function() { process.exit(1); }); request.setTimeout(5000, function() { request.destroy(); process.exit(1); });" || exit 1
 ```
 
-If the image does not include `curl` or an equivalent utility, add one during
-the implementation change or rely on ECS service deployment health until the
-image is corrected.
+Note: The `node` command is equivalent to:
+
+```text
+CMD-SHELL,curl -fsS http://localhost:3000/readyz || exit 1
+```
 
 ### 10.2 PM Generator Task Definition
 
@@ -379,7 +389,7 @@ Add non-secret environment variables:
 | Name | Value |
 | --- | --- |
 | `PMGEN_EVENT_TRANSPORT` | `sqs` |
-| `PMGEN_SQS_QUEUE_URL` | Queue URL for `telecom-analytics-dev-pm-events` |
+| `PMGEN_SQS_QUEUE_URL` | \<redacted> |
 | `PMGEN_INTERVAL_SECONDS` | `5` |
 | `PMGEN_CELL_COUNT` | `50` |
 | `PMGEN_SOURCE` | `pmgen-ecs` |
