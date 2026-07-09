@@ -2,6 +2,21 @@
 import { Pool } from 'pg';
 import { randomUUID } from 'crypto';
 
+/**
+ * Build the Postgres TLS configuration from the standard `PGSSLMODE` environment variable.
+ *
+ * @returns {object|undefined} Node-postgres SSL options, or undefined for default non-TLS behavior.
+ */
+function buildSslConfig() {
+  const sslMode = (process.env.PGSSLMODE || '').trim().toLowerCase();
+
+  if (sslMode === 'require') {
+    return { rejectUnauthorized: false };
+  }
+
+  return undefined;
+}
+
 // Initialize Postgres connection pool from environment variables
 const pool = new Pool({
   host: process.env.PGHOST || 'localhost',
@@ -10,6 +25,7 @@ const pool = new Pool({
   password: process.env.PGPASSWORD || 'telecom',
   database: process.env.PGDATABASE || 'telecom',
   connectionTimeoutMillis: 5000,
+  ssl: buildSslConfig(),
 });
 
 /**
