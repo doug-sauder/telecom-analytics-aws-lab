@@ -1,0 +1,11 @@
+# Example overrides for a lower-cost dormant rebuild.
+owner                      = "Doug Sauder"
+create_interface_endpoints = false
+create_ecs_services        = false
+ingest_desired_count       = 0
+pmgen_desired_count        = 0
+
+# Set these after rebuilding and pushing images into the new ECR repositories.
+db_init_image_digest = "sha256:cdee03b0aa2acb14d758eb24c7e79aa4de422b1b722dce9c3019d408d100f90d"
+ingest_image_digest  = "sha256:334ab8aa8c5ecf5501c00a2e1db6397350d1ceb18e3f3ee212d04a9b8e7754a8"
+pmgen_image_digest   = "sha256:b7956b4e64122d784725fa1a6a5be570cb8f57d5ad0a210e8568d6514a3d9e48"
