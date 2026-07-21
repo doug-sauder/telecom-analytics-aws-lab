@@ -8,10 +8,12 @@ AWS services: RDS, ECS, Fargate, SQS, CloudWatch.
 ## Documentation
 
 - [AWS RDS Console Setup](docs/aws-rds-console-setup.md) defines the initial
-  private VPC and RDS PostgreSQL environment and records the Web Console steps.
+  private VPC and RDS PostgreSQL environment and records the Management Console steps.
 - [AWS RDS Schema Initialization](docs/aws-rds-schema-initialization.md) defines
   the private, one-off ECS/Fargate workflow used to apply and validate the
   PostgreSQL schema.
 - [AWS ECS Application Runtime](docs/aws-ecs-application-runtime.md) defines the
   first long-running private ECS/Fargate application deployment using SQS,
   CloudWatch Logs, and the initialized RDS database.
+- [Terraform Runbook](docs/terraform-runbook.md) describes how to create the lab
+  resources using the provided Terraform files.

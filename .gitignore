@@ -3,6 +3,11 @@ dws-*
 *.local.md
 local-docs/
 
+# Terraform
+terraform/.terraform/
+terraform.tfstate*
+terraform.tfvars
+
 # Finder
 .DS_Store
 
